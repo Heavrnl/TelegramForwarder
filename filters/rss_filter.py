@@ -165,6 +165,20 @@ class RSSFilter(BaseFilter):
                 elif media_list:
                     logger.debug(f"_process_media返回了多个媒体: {len(media_list)}")
                 
+                # 检查媒体是否在skipped_media列表中
+                if context and hasattr(context, 'skipped_media') and context.skipped_media:
+                    for skipped_msg, size, name in context.skipped_media:
+                        if skipped_msg.id == message.id:
+                            logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，添加标记到条目数据")
+                            # 可以选择在content中添加标记，表明该媒体因大小超限而被跳过
+                            note = f"\n\n[注意：包含超过大小限制的媒体文件 {name or ''}，大小: {size}MB]"
+                            if hasattr(message, 'text') and message.text:
+                                content = message.text + note
+                            elif hasattr(message, 'caption') and message.caption:
+                                content = message.caption + note
+                            else:
+                                content = note.strip()
+                
                 # 尝试记录媒体信息
                 if media_list:
                     for i, media in enumerate(media_list):
@@ -282,6 +296,13 @@ class RSSFilter(BaseFilter):
         media_list = []
         
         try:
+            # 检查消息是否在skipped_media列表中
+            if context and hasattr(context, 'skipped_media') and context.skipped_media:
+                for skipped_msg, size, name in context.skipped_media:
+                    if skipped_msg.id == message.id:
+                        logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                        return media_list
+
             # 处理文档类型
             if hasattr(message, 'document') and message.document:
                 # 获取原始文件名
@@ -599,6 +620,17 @@ class RSSFilter(BaseFilter):
                     # 直接处理媒体组消息
                     for msg in context.media_group_messages:
                         try:
+                            # 检查消息是否在skipped_media列表中
+                            if hasattr(context, 'skipped_media') and context.skipped_media:
+                                skip_msg = False
+                                for skipped_msg, size, name in context.skipped_media:
+                                    if skipped_msg.id == msg.id:
+                                        logger.info(f"媒体组中的媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                                        skip_msg = True
+                                        break
+                                if skip_msg:
+                                    continue
+
                             # 处理图片类型
                             if hasattr(msg, 'photo') and msg.photo:
                                 message_id = getattr(msg, 'id', 'unknown')

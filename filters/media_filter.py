@@ -191,9 +191,14 @@ class MediaFilter(BaseFilter):
             
             logger.info(f'是否启用媒体大小过滤: {rule.enable_media_size_filter}')
             if rule.max_media_size and (file_size > rule.max_media_size) and rule.enable_media_size_filter:
-                file_name =''
+                file_name = ''
                 if event.message.document:
-                    file_name = event.message.document.attributes[0].file_name
+                    # 正确地从文档属性中获取文件名
+                    for attr in event.message.document.attributes:
+                        if hasattr(attr, 'file_name'):
+                            file_name = attr.file_name
+                            break
+                
                 logger.info(f'媒体文件超过大小限制 ({rule.max_media_size}MB)')
                 if rule.is_send_over_media_size_message:
                     logger.info(f'是否发送媒体大小超限提醒: {rule.is_send_over_media_size_message}')

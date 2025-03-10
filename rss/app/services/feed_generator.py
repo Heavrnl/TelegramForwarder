@@ -245,12 +245,14 @@ class FeedService:
                             # 添加HTML5视频播放器 - 使用内联样式
                             video_player = f'''
                             <div style="margin:15px 0;border:1px solid #eee;padding:10px;border-radius:5px;background-color:#f9f9f9;">
-                                <video controls width="100%" preload="none" poster="" style="width:100%;max-width:600px;display:block;margin:0 auto;">
+                                <video controls width="100%" preload="none" poster="" seekable="true" controlsList="nodownload" style="width:100%;max-width:600px;display:block;margin:0 auto;">
                                     <source src="{full_media_url}" type="{media.type}">
                                     您的阅读器不支持HTML5视频播放/预览
                                 </video>
                                 <p style="text-align:center;margin-top:8px;font-size:14px;">
-                                    <a href="{full_media_url}" target="_blank">下载视频: {display_name}</a>
+                                    <a href="{full_media_url}" target="_blank" style="display:inline-block;padding:6px 12px;background-color:#4CAF50;color:white;text-decoration:none;border-radius:4px;">
+                                        <i class="bi bi-download"></i> 下载视频: {display_name}
+                                    </a>
                                 </p>
                             </div>
                             '''
