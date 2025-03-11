@@ -10,6 +10,8 @@ from telethon import Button
 import logging
 from utils.common import get_main_module, get_ai_settings_text
 from utils.common import is_admin
+from scheduler.summary_scheduler import SummaryScheduler
+
 
 logger = logging.getLogger(__name__)
 
@@ -309,4 +311,45 @@ async def callback_cancel_set_summary(event, rule_id, session, message, data):
         session.close()
     return
 
-     
+async def callback_summary_now(event, rule_id, session, message, data):
+    # 处理立即执行总结的回调
+    logger.info(f"处理立即执行总结回调 - rule_id: {rule_id}")
+    
+    try:
+        rule = session.query(ForwardRule).get(int(rule_id))
+        if not rule:
+            await event.answer("规则不存在")
+            return
+        
+        main = await get_main_module()
+        user_client = main.user_client
+        bot_client = main.bot_client
+
+        scheduler = SummaryScheduler(user_client, bot_client)
+        await event.answer("开始执行总结，请稍候...")
+        
+        await message.edit(
+            f"正在为规则 {rule_id}（{rule.source_chat.name} -> {rule.target_chat.name}）生成总结...\n"
+            f"处理需要一定时间，请耐心等待。",
+            buttons=[[Button.inline("返回", f"ai_settings:{rule_id}")]]
+        )
+        
+        try:
+            # 执行总结任务
+            await asyncio.create_task(scheduler._execute_summary(rule.id,is_now=True))
+            logger.info(f"已启动规则 {rule_id} 的立即总结任务")
+        except Exception as e:
+            logger.error(f"执行总结任务失败: {str(e)}")
+            logger.error(traceback.format_exc())
+            await message.edit(
+                f"总结生成失败: {str(e)}",
+                buttons=[[Button.inline("返回", f"ai_settings:{rule_id}")]]
+            )
+    except Exception as e:
+        logger.error(f"处理总结时出错: {str(e)}")
+        logger.error(traceback.format_exc())
+        await event.answer(f"处理时出错: {str(e)}")
+    finally:
+        session.close()
+    
+    return

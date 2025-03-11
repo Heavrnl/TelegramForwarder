@@ -489,6 +489,7 @@ CALLBACK_HANDLERS = {
     'change_model': callback_change_model,
     'cancel_set_prompt': callback_cancel_set_prompt,
     'cancel_set_summary': callback_cancel_set_summary,
+    'summary_now':callback_summary_now,
     # 媒体设置
     'select_max_media_size': callback_select_max_media_size,
     'set_max_media_size': callback_set_max_media_size,
@@ -505,9 +506,3 @@ CALLBACK_HANDLERS = {
     'toggle_media_extension': callback_toggle_media_extension,
     'noop': callback_noop,
 }
-
-
-
-
-
-

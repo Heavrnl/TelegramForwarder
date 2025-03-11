@@ -8,6 +8,7 @@ from .claude_provider import ClaudeProvider
 import os
 import logging
 from utils.settings import load_ai_models
+from utils.constants import DEFAULT_AI_MODEL
 
 # 获取日志记录器
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def get_ai_provider(model=None):
     """获取AI提供者实例"""
     if not model:
-        model = os.getenv('DEFAULT_AI_MODEL', 'gemini-2.0-flash')
+        model = DEFAULT_AI_MODEL
     
     # 加载提供商配置（使用dict格式）
     providers_config = load_ai_models(type="dict")

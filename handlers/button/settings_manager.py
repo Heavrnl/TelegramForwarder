@@ -263,7 +263,13 @@ AI_SETTINGS = {
         },
         'toggle_action': 'toggle_top_summary',
         'toggle_func': lambda current: not current
+    },
+    'summary_now': {
+        'display_name': '立即执行总结',
+        'toggle_action': 'summary_now',
+        'toggle_func': None
     }
+
 }
 
 MEDIA_SETTINGS = {

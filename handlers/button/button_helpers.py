@@ -17,7 +17,14 @@ async def create_ai_settings_buttons(rule):
 
     # 添加 AI 设置按钮
     for field, config in AI_SETTINGS.items():
-        current_value = getattr(rule, field)
+        # 非属性的项
+        if field == 'summary_now':
+            display_value = config['display_name']
+            callback_data = f"{config['toggle_action']}:{rule.id}"
+            buttons.append([Button.inline(display_value, callback_data)])
+            continue
+            
+        # 特殊处理提示词设置    
         if field == 'ai_prompt' or field == 'summary_prompt':
             display_value = config['display_name']
             callback_data = f"{config['toggle_action']}:{rule.id}"
@@ -25,8 +32,10 @@ async def create_ai_settings_buttons(rule):
             continue
 
         elif field == 'ai_model':
+            current_value = getattr(rule, field)
             display_value = current_value or os.getenv('DEFAULT_AI_MODEL')
         else:
+            current_value = getattr(rule, field)
             display_value = config['values'].get(current_value, str(current_value))
         button_text = f"{config['display_name']}: {display_value}"
         callback_data = f"{config['toggle_action']}:{rule.id}"
@@ -37,7 +46,7 @@ async def create_ai_settings_buttons(rule):
         Button.inline('👈 返回', f"rule_settings:{rule.id}"),
         Button.inline('关闭', "close_settings")
     ])
-
+    
     return buttons
 
 async def create_media_settings_buttons(rule):

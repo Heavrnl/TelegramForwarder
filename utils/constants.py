@@ -38,6 +38,13 @@ RSS_DATA_DIR = os.path.abspath(os.path.join(BASE_DIR, RSS_DATA_PATH)
                             if not os.path.isabs(RSS_DATA_PATH)
                             else RSS_DATA_PATH)
 
+# 默认AI模型
+DEFAULT_AI_MODEL = os.getenv('DEFAULT_AI_MODEL', 'gpt-4o')
+# 默认AI总结提示词
+DEFAULT_SUMMARY_PROMPT = os.getenv('DEFAULT_SUMMARY_PROMPT', '请总结以下频道/群组24小时内的消息。')
+# 默认AI提示词
+DEFAULT_AI_PROMPT = os.getenv('DEFAULT_AI_PROMPT', '请尊重原意，保持原有格式不变，用简体中文重写下面的内容：')
+
 # 分页配置
 MODELS_PER_PAGE = int(os.getenv('AI_MODELS_PER_PAGE', 10))
 KEYWORDS_PER_PAGE = int(os.getenv('KEYWORDS_PER_PAGE', 50))

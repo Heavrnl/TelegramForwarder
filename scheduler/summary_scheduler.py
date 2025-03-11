@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 from telethon import TelegramClient
 from ai import get_ai_provider
 import traceback
-from utils.constants import DEFAULT_TIMEZONE
+from utils.constants import DEFAULT_TIMEZONE,DEFAULT_AI_MODEL,DEFAULT_SUMMARY_PROMPT
 logger = logging.getLogger(__name__)
 
 class SummaryScheduler:
@@ -85,13 +85,14 @@ class SummaryScheduler:
             
         return next_time
         
-    async def _execute_summary(self, rule_id):
+    async def _execute_summary(self, rule_id,is_now=False):
         """执行单个规则的总结任务"""
         session = get_session()
         try:
             rule = session.query(ForwardRule).get(rule_id)
-            if not rule or not rule.is_summary:
-                return
+            if not is_now:
+                if not rule or not rule.is_summary:
+                    return
                 
             try:
                 source_chat_id = int(rule.source_chat.telegram_chat_id)
@@ -177,12 +178,18 @@ class SummaryScheduler:
                     
                 all_messages = '\n'.join(messages)
                 
+                # 检查AI模型设置，如未设置则使用默认模型
+                if not rule.ai_model:
+                    rule.ai_model = DEFAULT_AI_MODEL
+                    logger.info(f"使用默认AI模型进行总结: {rule.ai_model}")
+                else:
+                    logger.info(f"使用规则配置的AI模型进行总结: {rule.ai_model}")
+                
                 # 获取AI提供者并处理总结
                 provider = await get_ai_provider(rule.ai_model)
-                await provider.initialize()
                 summary = await provider.process_message(
                     all_messages,
-                    prompt=rule.summary_prompt or os.getenv('DEFAULT_SUMMARY_PROMPT'),
+                    prompt=rule.summary_prompt or DEFAULT_SUMMARY_PROMPT,
                     model=rule.ai_model
                 )
                 
