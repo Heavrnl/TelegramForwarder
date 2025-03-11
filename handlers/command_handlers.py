@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 from telethon import Button
-from models.models import MediaTypes, MediaExtensions, ApplyRuleChat
+from models.models import MediaTypes, MediaExtensions
 from enums.enums import AddMode
 from models.models import get_session, Keyword, ReplaceRule, User
 from utils.common import *
@@ -19,7 +19,6 @@ import models.models as models
 from utils.auto_delete import respond_and_delete,reply_and_delete,async_delete_user_message
 from utils.common import get_bot_client
 from handlers.button.settings_manager import create_settings_text, create_buttons
-from models.db_operations import DBOperations
 
 logger = logging.getLogger(__name__)
 
@@ -111,81 +110,62 @@ async def handle_bind_command(event, client, parts):
         # 保存到数据库
         session = get_session()
         try:
-            # 提取聊天ID
-            target_chat_id = str(target_chat_entity.id)
-            source_chat_id = str(source_chat_entity.id)
+            # 保存源聊天
+            source_chat_db = session.query(Chat).filter(
+                Chat.telegram_chat_id == str(source_chat_entity.id)
+            ).first()
 
-            
-            # 获取聊天名称
-            source_chat_name = source_chat_entity.title if hasattr(source_chat_entity, 'title') else 'Private Chat'
-            target_chat_name = target_chat_entity.title if hasattr(target_chat_entity, 'title') else 'Private Chat'
-
-            logger.info(f'源聊天ID: {source_chat_id}, 目标聊天ID: {target_chat_id}')
-            logger.info(f'源聊天名称: {source_chat_name}, 目标聊天名称: {target_chat_name}')
-            # 检查是否已存在相同的转发规则
-            db_ops = await DBOperations.create()
-            exists, msg, existing_rule = await db_ops.check_forward_rule_exists(
-                session, 
-                source_chat_id, 
-                target_chat_id
-            )
-            
-            if exists:
-                await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                source_chat = existing_rule.source_chat
-                target_chat = existing_rule.target_chat
-                await reply_and_delete(event,
-                    f'已存在相同的转发规则:\n'
-                    f'源聊天: {source_chat_name} ({source_chat_id})\n'
-                    f'目标聊天: {target_chat_name} ({target_chat_id})\n'
-                    f'如需修改请使用 /settings 命令'
+            if not source_chat_db:
+                source_chat_db = Chat(
+                    telegram_chat_id=str(source_chat_entity.id),
+                    name=source_chat_entity.title if hasattr(source_chat_entity, 'title') else 'Private Chat'
                 )
-                return
-                
-            # 创建转发规则
-            success, msg, rule = await db_ops.create_forward_rule(
-                session, 
-                source_chat_id, 
-                target_chat_id,
-                source_name=source_chat_name,
-            )
-            
-            if not success:
-                logger.error(f'创建转发规则失败: {msg}')
-                await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                await reply_and_delete(event, f'创建转发规则失败: {msg}')
-                return
+                session.add(source_chat_db)
+                session.flush()
 
-            # 绑定目标聊天到规则
-            success, msg, apply_rule_chat = await db_ops.create_apply_rule_chat(
-                session,
-                target_chat_id,
-                rule.id
+            # 保存目标聊天
+            target_chat_db = session.query(Chat).filter(
+                Chat.telegram_chat_id == str(target_chat_entity.id)
+            ).first()
+
+            if not target_chat_db:
+                target_chat_db = Chat(
+                    telegram_chat_id=str(target_chat_entity.id),
+                    name=target_chat_entity.title if hasattr(target_chat_entity, 'title') else 'Private Chat'
+                )
+                session.add(target_chat_db)
+                session.flush()
+
+            # 如果当前没有选中的源聊天，就设置为新绑定的聊天
+            if not target_chat_db.current_add_id:
+                target_chat_db.current_add_id = str(source_chat_entity.id)
+
+            # 创建转发规则
+            rule = ForwardRule(
+                source_chat_id=source_chat_db.id,
+                target_chat_id=target_chat_db.id
             )
-            
-            if not success:
-                logger.error(f'创建应用规则聊天记录失败: {msg}')
-            # 提交事务
+            session.add(rule)
             session.commit()
-            
-            # 获取完整的规则对象
-            rule = session.query(ForwardRule).get(rule.id)
-                
-            # 创建完成
+
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
             await reply_and_delete(event,
                 f'已设置转发规则:\n'
-                f'源聊天: {source_chat_name} ({source_chat_id})\n'
-                f'目标聊天: {target_chat_name} ({target_chat_id})\n'
+                f'源聊天: {source_chat_db.name} ({source_chat_db.telegram_chat_id})\n'
+                f'目标聊天: {target_chat_db.name} ({target_chat_db.telegram_chat_id})\n'
                 f'请使用 /add 或 /add_regex 添加关键字',
                 buttons=[Button.inline("⚙️ 打开设置", f"rule_settings:{rule.id}")]
             )
 
-        except Exception as e:
+        except IntegrityError:
             session.rollback()
-            logger.error(f'设置转发规则时出错: {str(e)}\n{traceback.format_exc()}')
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event, f'设置转发规则时出错: {str(e)}')
+            await reply_and_delete(event,
+                f'已存在相同的转发规则:\n'
+                f'源聊天: {source_chat_db.name}\n'
+                f'目标聊天: {target_chat_db.name}\n'
+                f'如需修改请使用 /settings 命令'
+            )
             return
         finally:
             session.close()
@@ -219,7 +199,7 @@ async def handle_settings_command(event, command, parts):
             # 与callback_rule_settings函数相同的处理方式
             settings_message = await event.respond(
                 await create_settings_text(rule),
-                buttons=await create_buttons(rule,event)
+                buttons=await create_buttons(rule)
             )
             
         except Exception as e:
@@ -2085,8 +2065,6 @@ async def handle_delete_rule_command(event, command, parts):
         success_ids = []
         failed_ids = []
         not_found_ids = []
-        
-        db_ops = await DBOperations.create()
 
         for rule_id in ids_to_remove:
             rule = session.query(ForwardRule).get(rule_id)
@@ -2095,12 +2073,25 @@ async def handle_delete_rule_command(event, command, parts):
                 continue
 
             try:
-                # 删除规则及相关联的Chat记录（如果需要）
-                success, msg = await db_ops.delete_forward_rule(session, rule_id)
-                if not success:
-                    logger.error(f'删除规则 {rule_id} 时出错: {msg}')
-                    failed_ids.append(rule_id)
-                    continue
+                # 保存源频道ID以供后续检查
+                source_chat_id = rule.source_chat_id
+
+                # 删除规则（关联的替换规则、关键字和媒体类型会自动删除）
+                session.delete(rule)
+
+                # 检查源频道是否还有其他规则引用
+                remaining_rules = session.query(ForwardRule).filter(
+                    ForwardRule.source_chat_id == source_chat_id
+                ).count()
+
+                if remaining_rules == 0:
+                    # 如果没有其他规则引用这个源频道，删除源频道记录
+                    source_chat = session.query(Chat).filter(
+                        Chat.id == source_chat_id
+                    ).first()
+                    if source_chat:
+                        logger.info(f'删除未使用的源频道: {source_chat.name} (ID: {source_chat.telegram_chat_id})')
+                        session.delete(source_chat)
 
                 # 尝试从RSS服务删除规则数据
                 try:

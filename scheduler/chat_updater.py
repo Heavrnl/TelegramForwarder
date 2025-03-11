@@ -91,7 +91,7 @@ class ChatUpdater:
                     if i % 10 == 0 or i == total_chats:
                         logger.info(f"进度: {i}/{total_chats} ({i/total_chats*100:.1f}%)")
                     
-                    chat_id = chat.source_chat_id
+                    chat_id = chat.telegram_chat_id
                     # 尝试获取聊天实体
                     try:
                         # 尝试转换聊天ID为整数
@@ -130,7 +130,7 @@ class ChatUpdater:
                         continue
                         
                 except Exception as e:
-                    logger.error(f"处理聊天 {chat.source_chat_id} 时出错: {str(e)}")
+                    logger.error(f"处理聊天 {chat.telegram_chat_id} 时出错: {str(e)}")
                     error_count += 1
                     continue
                     

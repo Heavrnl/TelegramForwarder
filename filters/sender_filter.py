@@ -2,6 +2,7 @@ import logging
 import os
 from filters.base_filter import BaseFilter
 from enums.enums import PreviewMode
+from telethon.errors import FloodWaitError
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,34 @@ class SenderFilter(BaseFilter):
         target_chat = rule.target_chat
         target_chat_id = int(target_chat.telegram_chat_id)
         
+        # 预先获取目标聊天实体
+        try:
+            entity = None
+            try:
+                # 直接使用ID
+                entity = await client.get_entity(target_chat_id)
+                logger.info(f'成功获取目标聊天实体: {target_chat.name} (ID: {target_chat_id})')
+            except Exception as e1:
+                try:
+                    # 尝试添加-100前缀
+                    if not str(target_chat_id).startswith('-100'):
+                        super_group_id = int(f'-100{abs(target_chat_id)}')
+                        entity = await client.get_entity(super_group_id)
+                        target_chat_id = super_group_id  # 更新使用正确的ID
+                        logger.info(f'使用私有群组ID格式成功获取实体: {target_chat.name} (ID: {target_chat_id})')
+                except Exception as e2:
+                    try:
+                        # 尝试常规群组格式
+                        if not str(target_chat_id).startswith('-'):
+                            group_id = int(f'-{abs(target_chat_id)}')
+                            entity = await client.get_entity(group_id)
+                            target_chat_id = group_id  # 更新使用正确的ID
+                            logger.info(f'使用常规群组ID格式成功获取实体: {target_chat.name} (ID: {target_chat_id})')
+                    except Exception as e3:
+                        logger.warning(f'无法获取目标聊天实体，尝试继续发送: {e1}, {e2}, {e3}')
+        except Exception as e:
+            logger.warning(f'获取目标聊天实体时出错: {str(e)}')
+        
         # 设置消息格式
         parse_mode = rule.message_mode.value  # 使用枚举的值（字符串）
         logger.info(f'使用消息格式: {parse_mode}')
@@ -53,6 +82,11 @@ class SenderFilter(BaseFilter):
                 
             logger.info(f'消息已发送到: {target_chat.name} ({target_chat_id})')
             return True
+        except FloodWaitError as e:
+            wait_time = e.seconds
+            logger.error(f'发送消息频率限制，需要等待 {wait_time} 秒')
+            context.errors.append(f"发送消息频率限制，需要等待 {wait_time} 秒")
+            return False
         except Exception as e:
             logger.error(f'发送消息时出错: {str(e)}')
             context.errors.append(f"发送消息错误: {str(e)}")

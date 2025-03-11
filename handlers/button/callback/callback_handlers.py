@@ -110,22 +110,21 @@ async def callback_delete(event, rule_id, session, message, data):
         ).delete()
 
         # 删除规则
-        db_ops = await DBOperations.create()
-        success, msg = await db_ops.delete_forward_rule(session, rule_id)
-        # session.delete(rule)
+        session.delete(rule)
 
         # 检查源频道是否还有其他规则引用
         remaining_rules = session.query(ForwardRule).filter(
             ForwardRule.source_chat_id == source_chat_id
         ).count()
 
-        # if remaining_rules == 0:
-        #     # 如果没有其他规则引用这个源频道，删除源频道记录
-            
-            
-        if not success:
-            await event.answer(f'删除失败: {msg}')
-            return
+        if remaining_rules == 0:
+            # 如果没有其他规则引用这个源频道，删除源频道记录
+            source_chat = session.query(Chat).filter(
+                Chat.id == source_chat_id
+            ).first()
+            if source_chat:
+                logger.info(f'删除未使用的源频道: {source_chat.name} (ID: {source_chat.telegram_chat_id})')
+                session.delete(source_chat)
 
         # 提交所有更改
         session.commit()
@@ -234,7 +233,7 @@ async def callback_rule_settings(event, rule_id, session, message, data):
 
     await message.edit(
         await create_settings_text(rule),
-        buttons=await create_buttons(rule,event)
+        buttons=await create_buttons(rule)
     )
 
 async def callback_toggle_current(event, rule_id, session, message, data):
@@ -244,17 +243,20 @@ async def callback_toggle_current(event, rule_id, session, message, data):
         await event.answer('规则不存在')
         return
 
+    target_chat = rule.target_chat
+    source_chat = rule.source_chat
+
     # 更新当前选中的源聊天
-    db_ops = await get_db_ops()
-    await db_ops.update_apply_rule_chat(session,rule_id,event.chat_id)
+    target_chat.current_add_id = source_chat.telegram_chat_id
+    session.commit()
 
     # 更新按钮显示
     await message.edit(
         await create_settings_text(rule),
-        buttons=await create_buttons(rule,event)
+        buttons=await create_buttons(rule)
     )
 
-    await event.answer(f'已切换到')
+    await event.answer(f'已切换到: {source_chat.name}')
 
 
 
@@ -294,7 +296,7 @@ async def callback_select_delay_time(event, rule_id, session, message, data):
 
                 await message.edit(
                     await create_settings_text(rule),
-                    buttons=await create_buttons(rule,event)
+                    buttons=await create_buttons(rule)
                 )
                 logger.info("界面更新完成")
         except Exception as e:
@@ -433,7 +435,7 @@ async def handle_callback(event):
                             try:
                                 await message.edit(
                                     await create_settings_text(rule),
-                                    buttons=await create_buttons(rule,event)
+                                    buttons=await create_buttons(rule)
                                 )
                             except Exception as e:
                                 if 'message was not modified' not in str(e).lower():
