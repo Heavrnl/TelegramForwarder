@@ -13,20 +13,22 @@ class Chat(Base):
     __tablename__ = 'chats'
 
     id = Column(Integer, primary_key=True)
-    telegram_chat_id = Column(String, unique=True, nullable=False)
+    source_chat_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=True)
-    current_add_id = Column(String, nullable=True)
 
-    # 关系
-    source_rules = relationship('ForwardRule', foreign_keys='ForwardRule.source_chat_id', back_populates='source_chat')
-    target_rules = relationship('ForwardRule', foreign_keys='ForwardRule.target_chat_id', back_populates='target_chat')
+class ApplyRuleChat(Base):
+    __tablename__ = 'apply_rule_chats'
+
+    id = Column(Integer, primary_key=True)
+    telegram_chat_id = Column(String, unique=True, nullable=False)
+    current_rule_id = Column(Integer, nullable=True)
 
 class ForwardRule(Base):
     __tablename__ = 'forward_rules'
 
     id = Column(Integer, primary_key=True)
-    source_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
-    target_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
+    source_chat_id = Column(String, nullable=False)
+    target_chat_id = Column(String, nullable=False)
     forward_mode = Column(Enum(ForwardMode), nullable=False, default=ForwardMode.BLACKLIST)
     use_bot = Column(Boolean, default=True)
     message_mode = Column(Enum(MessageMode), nullable=False, default=MessageMode.MARKDOWN)
@@ -70,8 +72,6 @@ class ForwardRule(Base):
     )
 
     # 关系
-    source_chat = relationship('Chat', foreign_keys=[source_chat_id], back_populates='source_rules')
-    target_chat = relationship('Chat', foreign_keys=[target_chat_id], back_populates='target_rules')
     keywords = relationship('Keyword', back_populates='rule')
     replace_rules = relationship('ReplaceRule', back_populates='rule')
     media_types = relationship('MediaTypes', uselist=False, back_populates='rule', cascade="all, delete-orphan")
@@ -208,6 +208,12 @@ def migrate_db(engine):
         
     try:
         with engine.connect() as connection:
+
+            # 如果apply_rule_chats表不存在，创建表
+            if 'apply_rule_chats' not in existing_tables:
+                logging.info("创建apply_rule_chats表...")
+                ApplyRuleChat.__table__.create(engine)
+
             # 如果users表不存在，创建表
             if 'users' not in existing_tables:
                 logging.info("创建users表...")

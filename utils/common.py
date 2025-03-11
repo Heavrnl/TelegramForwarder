@@ -8,6 +8,8 @@ from enums.enums import ForwardMode
 from models.models import Chat, ForwardRule
 import re
 import telethon
+from utils.auto_delete import respond_and_delete,reply_and_delete,async_delete_user_message
+
 
 from utils.constants import AI_SETTINGS_TEXT,MEDIA_SETTINGS_TEXT
 
@@ -29,12 +31,12 @@ async def get_main_module():
 
 async def get_user_client():
     """获取用户客户端"""
-    main = await get_main_module()
+    import main
     return main.user_client
 
 async def get_bot_client():
     """获取机器人客户端"""
-    main = await get_main_module()
+    import main
     return main.bot_client
 
 async def get_db_ops():
@@ -374,6 +376,41 @@ async def get_sender_info(event, rule_id):
         logger.warning(f"规则 ID: {rule_id} - event.message 既没有 from_user 也没有 sender 属性")
         sender_info = "未知发送者 (无法获取用户信息)"
     return sender_info
+
+async def get_chat_name_by_id(chat_id, use_bot=False):
+    """
+    根据聊天ID获取聊天名称
+    
+    参数:
+        chat_id: 聊天ID
+        use_bot: 是否使用机器人客户端，默认使用用户客户端
+        
+    返回:
+        聊天名称，如果获取失败则返回聊天ID
+    """
+    try:
+        # 获取客户端
+        main = await get_main_module()
+        client = main.user_client
+        if not client:
+            return str(chat_id)
+            
+        # 获取聊天实体
+        entity = await client.get_entity(int(chat_id) if str(chat_id).lstrip('-').isdigit() else chat_id)
+        
+        # 获取名称
+        if hasattr(entity, 'title'):
+            return entity.title
+        elif hasattr(entity, 'first_name'):
+            name = entity.first_name
+            if hasattr(entity, 'last_name') and entity.last_name:
+                name += f" {entity.last_name}"
+            return name
+        else:
+            return str(chat_id)
+    except Exception as e:
+        logger.error(f"获取聊天名称失败: {e}")
+        return str(chat_id)
 
 
 

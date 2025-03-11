@@ -1,5 +1,5 @@
 from sqlalchemy.exc import IntegrityError
-from models.models import Keyword, ReplaceRule, ForwardRule, MediaTypes, MediaExtensions, RSSConfig, RSSPattern, User
+from models.models import Keyword, ReplaceRule, ForwardRule, MediaTypes, MediaExtensions, RSSConfig, RSSPattern, User, ApplyRuleChat, Chat
 from werkzeug.security import check_password_hash, generate_password_hash
 from sqlalchemy.orm import joinedload
 import logging
@@ -712,4 +712,345 @@ class DBOperations:
         """获取RSS配置及其所有模式"""
         return session.query(RSSConfig).options(
             joinedload(RSSConfig.patterns)
-        ).filter(RSSConfig.rule_id == rule_id).first() 
+        ).filter(RSSConfig.rule_id == rule_id).first()
+
+    # ApplyRuleChat相关操作
+    async def create_apply_rule_chat(self, session, telegram_chat_id, current_rule_id=None):
+        """创建应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            telegram_chat_id: Telegram聊天ID
+            current_rule_id: 当前应用的规则ID，可为空
+            
+        Returns:
+            (bool, str, ApplyRuleChat): 成功状态、消息和创建的记录
+        """
+        try:
+            # 检查是否已存在相同的telegram_chat_id
+            existing = session.query(ApplyRuleChat).filter_by(telegram_chat_id=telegram_chat_id).first()
+            if existing:
+                return False, "此聊天已存在应用规则记录", existing
+                
+            # 创建新记录
+            apply_rule_chat = ApplyRuleChat(
+                telegram_chat_id=telegram_chat_id,
+                current_rule_id=current_rule_id
+            )
+            session.add(apply_rule_chat)
+            session.commit()
+            
+            return True, "创建应用规则聊天记录成功", apply_rule_chat
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"创建应用规则聊天记录失败: {str(e)}")
+            return False, f"创建应用规则聊天记录失败: {str(e)}", None
+            
+    async def get_apply_rule_chat(self, session, telegram_chat_id):
+        """获取应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            telegram_chat_id: Telegram聊天ID
+            
+        Returns:
+            (bool, str, ApplyRuleChat): 成功状态、消息和查询到的记录
+        """
+        try:
+            apply_rule_chat = session.query(ApplyRuleChat).filter_by(telegram_chat_id=telegram_chat_id).first()
+            if not apply_rule_chat:
+                return False, "未找到该聊天的应用规则记录", None
+                
+            return True, "获取应用规则聊天记录成功", apply_rule_chat
+            
+        except Exception as e:
+            logger.error(f"获取应用规则聊天记录失败: {str(e)}")
+            return False, f"获取应用规则聊天记录失败: {str(e)}", None
+            
+    async def get_apply_rule_chat_by_id(self, session, chat_id):
+        """通过ID获取应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            chat_id: 应用规则聊天记录ID
+            
+        Returns:
+            (bool, str, ApplyRuleChat): 成功状态、消息和查询到的记录
+        """
+        try:
+            apply_rule_chat = session.query(ApplyRuleChat).get(chat_id)
+            if not apply_rule_chat:
+                return False, "未找到该ID的应用规则聊天记录", None
+                
+            return True, "获取应用规则聊天记录成功", apply_rule_chat
+            
+        except Exception as e:
+            logger.error(f"获取应用规则聊天记录失败: {str(e)}")
+            return False, f"获取应用规则聊天记录失败: {str(e)}", None
+            
+    async def update_apply_rule_chat(self, session, telegram_chat_id, current_rule_id=None):
+        """更新应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            telegram_chat_id: Telegram聊天ID
+            current_rule_id: 新的当前规则ID
+            
+        Returns:
+            (bool, str, ApplyRuleChat): 成功状态、消息和更新后的记录
+        """
+        try:
+            apply_rule_chat = session.query(ApplyRuleChat).filter_by(telegram_chat_id=telegram_chat_id).first()
+            if not apply_rule_chat:
+                # 如果记录不存在，则创建新记录
+                return await self.create_apply_rule_chat(session, telegram_chat_id, current_rule_id)
+                
+            # 更新记录
+            apply_rule_chat.current_rule_id = current_rule_id
+            session.commit()
+            
+            return True, "更新应用规则聊天记录成功", apply_rule_chat
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"更新应用规则聊天记录失败: {str(e)}")
+            return False, f"更新应用规则聊天记录失败: {str(e)}", None
+            
+    async def delete_apply_rule_chat(self, session, telegram_chat_id):
+        """删除应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            telegram_chat_id: Telegram聊天ID
+            
+        Returns:
+            (bool, str): 成功状态和消息
+        """
+        try:
+            result = session.query(ApplyRuleChat).filter_by(telegram_chat_id=telegram_chat_id).delete()
+            if result == 0:
+                return False, "未找到该聊天的应用规则记录"
+                
+            session.commit()
+            return True, "删除应用规则聊天记录成功"
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"删除应用规则聊天记录失败: {str(e)}")
+            return False, f"删除应用规则聊天记录失败: {str(e)}"
+            
+    async def get_all_apply_rule_chats(self, session):
+        """获取所有应用规则聊天记录
+        
+        Args:
+            session: 数据库会话
+            
+        Returns:
+            list: 应用规则聊天记录列表
+        """
+        try:
+            return session.query(ApplyRuleChat).all()
+        except Exception as e:
+            logger.error(f"获取所有应用规则聊天记录失败: {str(e)}")
+            return []
+            
+    # ForwardRule相关操作
+    async def check_forward_rule_exists(self, session, source_chat_id, target_chat_id):
+        """检查是否已存在相同的转发规则
+        
+        Args:
+            session: 数据库会话
+            source_chat_id: 源聊天ID
+            target_chat_id: 目标聊天ID
+            
+        Returns:
+            (bool, str, ForwardRule): 是否存在, 消息, 现有规则(如果存在)
+        """
+        try:
+            # 查询是否已存在相同source_chat_id和target_chat_id的规则
+            existing_rule = session.query(ForwardRule).filter(
+                ForwardRule.source_chat_id == source_chat_id,
+                ForwardRule.target_chat_id == target_chat_id
+            ).first()
+            
+            if existing_rule:
+                return True, "已存在相同的转发规则", existing_rule
+            
+            return False, "不存在相同的转发规则", None
+            
+        except Exception as e:
+            logger.error(f"检查转发规则是否存在时出错: {str(e)}")
+            return False, f"检查转发规则是否存在时出错: {str(e)}", None
+            
+    async def create_forward_rule(self, session, source_chat_id, target_chat_id, source_name=None, target_name=None, **kwargs):
+        """创建转发规则，同时确保Chat记录存在
+        
+        Args:
+            session: 数据库会话
+            source_chat_id: 源聊天ID（字符串ID）
+            target_chat_id: 目标聊天ID（字符串ID）
+            source_name: 源聊天名称
+            target_name: 目标聊天名称
+            **kwargs: 其他转发规则参数
+            
+        Returns:
+            (bool, str, ForwardRule): 成功状态, 消息, 创建的规则
+        """
+        try:
+            # 先检查是否已存在相同的规则
+            exists, msg, existing_rule = await self.check_forward_rule_exists(session, source_chat_id, target_chat_id)
+            if exists:
+                return False, msg, existing_rule
+                
+            # 创建新规则
+            rule = ForwardRule(
+                source_chat_id=source_chat_id,
+                target_chat_id=target_chat_id,
+                **kwargs
+            )
+            
+            session.add(rule)
+            session.flush()  # 获取ID但不提交
+
+            # 查看是否存在source_chat_id再创建
+            success, msg, chat = await self.get_chat_by_source_id(session, source_chat_id)
+            if not success:
+                await self.create_chat(session, source_chat_id, source_name)
+            
+            return True, "创建转发规则成功", rule
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"创建转发规则失败: {str(e)}")
+            return False, f"创建转发规则失败: {str(e)}", None
+            
+    async def delete_forward_rule(self, session, rule_id):
+        """删除转发规则，同时检查是否需要删除关联的Chat记录
+        
+        Args:
+            session: 数据库会话
+            rule_id: 规则ID
+            
+        Returns:
+            (bool, str): 成功状态, 消息
+        """
+        try:
+            # 获取规则
+            rule = session.query(ForwardRule).get(rule_id)
+            if not rule:
+                return False, "规则不存在"
+                
+            # 获取目标聊天
+            source_chat_id = rule.source_chat_id
+            
+            # 删除规则
+            session.delete(rule)
+            session.flush()
+
+            # ApplyRuleChat对应rule_id的全部记录
+            apply_rule_chats = session.query(ApplyRuleChat).filter_by(current_rule_id=rule_id).all()
+            if apply_rule_chats:
+                for apply_rule_chat in apply_rule_chats:
+                    session.delete(apply_rule_chat)
+                session.flush()
+            
+            # 检查是否还有其他使用该源聊天的规则
+            rules_count = session.query(ForwardRule).filter_by(source_chat_id=source_chat_id).count()
+            logger.info(f"rules_count: {rules_count}")
+            if rules_count == 0:
+                # 如果没有其他规则使用该源聊天，则删除聊天记录
+                chat = session.query(Chat).filter_by(source_chat_id=source_chat_id).first()
+                logger.info(f"chat: {chat}")
+                if chat:
+                    session.delete(chat)
+                    session.flush()
+                    logger.info(f"已删除不再使用的Chat记录: ID={source_chat_id}")
+            
+            return True, "删除转发规则成功"
+            
+        except Exception as e:
+            session.rollback()
+            logger.error(f"删除转发规则失败: {str(e)}")
+            return False, f"删除转发规则失败: {str(e)}"
+
+    # Chat表操作方法
+    async def get_chat_by_source_id(self, session, source_chat_id):
+        """通过source_chat_id获取Chat记录
+        
+        Args:
+            session: 数据库会话
+            source_chat_id: 源聊天ID
+            
+        Returns:
+            (bool, str, Chat): 成功状态, 消息, Chat记录
+        """
+        try:
+            chat = session.query(Chat).filter_by(source_chat_id=source_chat_id).first()
+            if not chat:
+                return False, "未找到Chat记录", None
+            return True, "成功获取Chat记录", chat
+        except Exception as e:
+            logger.error(f"获取Chat记录出错: {str(e)}")
+            return False, f"获取Chat记录出错: {str(e)}", None
+            
+    async def create_chat(self, session, source_chat_id, name=None):
+        """创建Chat记录
+        
+        Args:
+            session: 数据库会话
+            source_chat_id: 源聊天ID
+            name: 聊天名称
+            
+        Returns:
+            (bool, str, Chat): 成功状态, 消息, 创建的Chat记录
+        """
+        try:
+            # 检查是否已存在
+            success, _, chat = await self.get_chat_by_source_id(session, source_chat_id)
+            if success:
+                return False, "Chat记录已存在", chat
+                
+            # 创建新记录
+            new_chat = Chat(
+                source_chat_id=source_chat_id,
+                name=name
+            )
+            session.add(new_chat)
+            session.flush()  # 获取ID而不提交
+            
+            return True, "成功创建Chat记录", new_chat
+        except Exception as e:
+            session.rollback()
+            logger.error(f"创建Chat记录出错: {str(e)}")
+            return False, f"创建Chat记录出错: {str(e)}", None
+
+    async def delete_chat(self, session, source_chat_id):
+        """删除Chat记录，但仅当没有关联的ForwardRule时
+        
+        Args:
+            session: 数据库会话
+            source_chat_id: 源聊天ID
+            
+        Returns:
+            (bool, str): 成功状态, 消息
+        """
+        try:
+            success, msg, chat = await self.get_chat_by_source_id(session, source_chat_id)
+            if not success:
+                return False, msg
+                
+            # 检查是否有关联的ForwardRule
+            rules_count = session.query(ForwardRule).filter_by(source_chat_id=source_chat_id).count()
+            if rules_count > 0:
+                return False, f"不能删除Chat记录，仍有{rules_count}个关联的转发规则"
+                
+            # 执行删除
+            session.delete(chat)
+            session.flush()
+            
+            return True, "成功删除Chat记录"
+        except Exception as e:
+            session.rollback()
+            logger.error(f"删除Chat记录出错: {str(e)}")
+            return False, f"删除Chat记录出错: {str(e)}" 

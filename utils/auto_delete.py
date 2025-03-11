@@ -3,7 +3,6 @@ import os
 import logging
 from functools import wraps
 from utils.constants import BOT_MESSAGE_DELETE_TIMEOUT, USER_MESSAGE_DELETE_ENABLE
-from utils.common import get_main_module, get_bot_client
 logger = logging.getLogger(__name__)
 
 # 从环境变量获取默认超时时间

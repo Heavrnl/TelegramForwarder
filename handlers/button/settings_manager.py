@@ -4,7 +4,14 @@ from enums.enums import ForwardMode, MessageMode, PreviewMode, AddMode, HandleMo
 from models.models import get_session
 from telethon import Button
 from utils.constants import RSS_ENABLED
+from utils.common import get_chat_name_by_id
+from utils.common import get_db_ops
+import logging
+
+logger = logging.getLogger(__name__)
+
 AI_MODELS = load_ai_models()
+
 
 # 规则配置字段定义
 RULE_SETTINGS = {
@@ -329,27 +336,36 @@ MEDIA_SETTINGS = {
 
 async def create_settings_text(rule):
     """创建设置信息文本"""
+    # 获取聊天名称
+    target_chat_name = await get_chat_name_by_id(rule.target_chat_id)
+    source_chat_name = await get_chat_name_by_id(rule.source_chat_id)
+    
     text = (
         "📋 管理转发规则\n\n"
         f"规则ID: `{rule.id}`\n" 
-        f"目标聊天: {rule.target_chat.name}\n"
-        f"源聊天: {rule.source_chat.name}"
+        f"目标聊天: {target_chat_name} ({rule.target_chat_id})\n"
+        f"源聊天: {source_chat_name} ({rule.source_chat_id})"
     )
     return text
 
-async def create_buttons(rule):
+async def create_buttons(rule,event=None):
     """创建规则设置按钮"""
     buttons = []
+    db_ops = await get_db_ops()
+    session = get_session()
+    success, msg, apply_rule_chat = await db_ops.get_apply_rule_chat_by_id(session,rule.id)
+    logger.info(f"apply_rule_chat: {apply_rule_chat}")
 
     # 获取当前聊天的当前选中规则
     session = get_session()
     try:
-        target_chat = rule.target_chat
-        current_add_id = target_chat.current_add_id
-        source_chat = rule.source_chat
+
 
         # 添加规则切换按钮
-        is_current = current_add_id == source_chat.telegram_chat_id
+        if apply_rule_chat:
+            is_current = apply_rule_chat.telegram_chat_id == event.chat_id
+        else:
+            is_current = False
         buttons.append([
             Button.inline(
                 f"{'✅ ' if is_current else ''}应用当前规则",

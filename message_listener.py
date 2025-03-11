@@ -91,7 +91,7 @@ async def handle_user_message(event, user_client, bot_client):
     session = get_session()
     try:
         chat_exists = session.query(Chat).filter(
-            Chat.telegram_chat_id == str(chat_id)  # 这里转换为字符串
+            Chat.source_chat_id == str(chat_id)  # 这里转换为字符串
         ).first()
         
         if chat_exists:
@@ -107,7 +107,7 @@ async def handle_user_message(event, user_client, bot_client):
     try:
         # 查询源聊天
         source_chat = session.query(Chat).filter(
-            Chat.telegram_chat_id == str(chat_id)
+            Chat.source_chat_id == str(chat_id)
         ).first()
         
         if not source_chat:
