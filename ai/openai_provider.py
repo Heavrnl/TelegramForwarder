@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict
-import openai
+from openai import AsyncOpenAI
 from .base import BaseAIProvider
 import os
 import logging
@@ -62,5 +62,5 @@ class OpenAIProvider(OpenAIBaseProvider):
             return response.choices[0].message.content
             
         except Exception as e:
-            logger.error(f"OpenAI处理消息时出错: {str(e)}")
+            logger.error(f"OpenAI处理消息时出错: {str(e)}", exc_info=True)
             return f"AI处理失败: {str(e)}"
