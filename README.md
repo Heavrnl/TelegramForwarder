@@ -222,6 +222,40 @@ docker-compose up -d
 这样，你就可以在其他规则中管理收藏夹的规则，所有操作都会同步到 **转发收藏夹** 规则中。
 
 
+---
+
+#### 5. 开启 TUN 模式后的网络配置
+
+开启 tun 模式后，容器内可以使用代理，但外部无法访问容器内服务，解决方法如下：
+
+**简单方法：**
+
+以 host 网络模式重新创建容器，例：`docker run --network host nginx`。
+在本项目中，只需在 `docker-compose.yml` 中取消 `network_mode: host` 的注释即可。
+
+**复杂方法：**
+
+若容器网络是 docker0，忽略这一步，否则先排除接口。
+
+1. 获取代理地址：
+   ```bash
+   # 将 allow-lan 修改为 true（注意设置用户验证）
+   clashmixin -e 
+
+   # 将输出的代理地址中的ip修改为宿主机内网ip，例：http://username:password@192.168.13.115:7890
+   echo $http_proxy
+   ```
+
+2. 为容器配置代理地址：
+   ```bash
+   # 持久化：重新创建容器时，指定代理环境变量，例： 
+   docker run  -e http_proxy="http://username:password@192.168.13.115:7890" nginx
+
+   # 临时：进入容器时，指定代理环境变量，例： 
+   docker exec -e http_proxy=xxx nginx bash
+   ```
+
+
 ## 🛠️ 功能详解
 
 ### ⚡ 过滤流程
