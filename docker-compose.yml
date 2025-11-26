@@ -6,9 +6,12 @@ services:
     # ports:
     #   - 9804:8000
     restart: unless-stopped
+    # 如果服务器采用了tun代理模式，请取消以下注释，保持上方port注释
+    network_mode: host # tun模式关键配置
+    env_file:
+      - .env
     volumes:
       - ./db:/app/db
-      - ./.env:/app/.env
       - ./logs:/app/logs
       - ./sessions:/app/sessions
       - ./temp:/app/temp
@@ -24,4 +27,3 @@ services:
         compress: "true"
     stdin_open: true
     tty: true
-
