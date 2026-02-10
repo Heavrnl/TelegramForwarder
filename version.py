@@ -1,32 +1,32 @@
 VERSION = "1.7.2"
 
-# 版本号说明
+# Version number description
 VERSION_INFO = {
-    "major": 1,        # 主版本号：重大更新，可能不兼容旧版本
-    "feature": 7,      # 功能版本号：添加重要新功能
-    "minor": 2,        # 次要版本号：添加小功能或优化
-    "patch": 0,        # 补丁版本号：Bug修复和小改动
-} 
+    "major": 1,        # Major version: significant updates, may be incompatible with older versions
+    "feature": 7,      # Feature version: addition of important new features
+    "minor": 2,        # Minor version: addition of small features or optimizations
+    "patch": 0,        # Patch version: bug fixes and minor changes
+}
 
 
-UPDATE_INFO = """<blockquote><b>✨ 更新日志 v1.7.2</b>
+UPDATE_INFO = """<blockquote><b>✨ Changelog v1.7.2</b>
 
-- 提高AI总结的健壮性 @iCross https://github.com/Heavrnl/TelegramForwarder/pull/47
+- Improved robustness of AI summary @iCross https://github.com/Heavrnl/TelegramForwarder/pull/47
 
 </blockquote>
 """
 
 
 WELCOME_TEXT = """
-<b>🎉 欢迎使用 TelegramForwarder !</b>
-        
-如果您觉得这个项目对您有帮助，欢迎通过以下方式支持我:
+<b>🎉 Welcome to TelegramForwarder!</b>
 
-<blockquote>⭐ <b>给项目点个小小的 Star:</b> <a href='https://github.com/Heavrnl/TelegramForwarder'>TelegramForwarder</a>
-☕ <b>请我喝杯咖啡:</b> <a href='https://ko-fi.com/0heavrnl'>Ko-fi</a></blockquote>
+If you find this project helpful, feel free to support me through the following:
 
-当前版本: v1.7.2
-更新日志: /changelog
+<blockquote>⭐ <b>Give the project a Star:</b> <a href='https://github.com/Heavrnl/TelegramForwarder'>TelegramForwarder</a>
+☕ <b>Buy me a coffee:</b> <a href='https://ko-fi.com/0heavrnl'>Ko-fi</a></blockquote>
 
-感谢您的支持!
+Current version: v1.7.2
+Changelog: /changelog
+
+Thank you for your support!
 """
