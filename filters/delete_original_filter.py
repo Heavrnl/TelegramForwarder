@@ -6,34 +6,34 @@ logger = logging.getLogger(__name__)
 
 class DeleteOriginalFilter(BaseFilter):
     """
-    删除原始消息过滤器，处理转发后是否要删除原始消息
+    Delete original message filter, handles whether to delete the original message after forwarding
     """
-    
+
     async def _process(self, context):
         """
-        处理是否删除原始消息
-        
+        Handle whether to delete the original message
+
         Args:
-            context: 消息上下文
-            
+            context: Message context
+
         Returns:
-            bool: 是否继续处理
+            bool: Whether to continue processing
         """
         rule = context.rule
         event = context.event
-        
-        # 如果不需要删除原始消息，直接返回
+
+        # If deletion of original message is not needed, return directly
         if not rule.is_delete_original:
             return True
-            
+
         try:
-            # 获取 main.py 中的用户客户端
+            # Get user client from main.py
             main = await get_main_module()
-            user_client = main.user_client  # 获取用户客户端
-            
-            # 媒体组消息
+            user_client = main.user_client  # Get user client
+
+            # Media group messages
             if event.message.grouped_id:
-                # 使用用户客户端获取并删除媒体组消息
+                # Use user client to get and delete media group messages
                 async for message in user_client.iter_messages(
                         event.chat_id,
                         min_id=event.message.id - 10,
@@ -42,15 +42,15 @@ class DeleteOriginalFilter(BaseFilter):
                 ):
                     if message.grouped_id == event.message.grouped_id:
                         await message.delete()
-                        logger.info(f'已删除媒体组消息 ID: {message.id}')
+                        logger.info(f'Deleted media group message ID: {message.id}')
             else:
-                # 单条消息的删除逻辑
+                # Single message deletion logic
                 message = await user_client.get_messages(event.chat_id, ids=event.message.id)
                 await message.delete()
-                logger.info(f'已删除原始消息 ID: {event.message.id}')
-                
+                logger.info(f'Deleted original message ID: {event.message.id}')
+
             return True
         except Exception as e:
-            logger.error(f'删除原始消息时出错: {str(e)}')
-            context.errors.append(f"删除原始消息错误: {str(e)}")
-            return True  # 即使删除失败，也继续处理 
+            logger.error(f'Error deleting original message: {str(e)}')
+            context.errors.append(f"Error deleting original message: {str(e)}")
+            return True  # Even if deletion fails, continue processing
