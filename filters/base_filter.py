@@ -5,42 +5,42 @@ logger = logging.getLogger(__name__)
 
 class BaseFilter(ABC):
     """
-    基础过滤器类，定义过滤器接口
+    Base filter class, defines the filter interface
     """
-    
+
     def __init__(self, name=None):
         """
-        初始化过滤器
-        
+        Initialize filter
+
         Args:
-            name: 过滤器名称，如果为None则使用类名
+            name: Filter name, uses class name if None
         """
         self.name = name or self.__class__.__name__
-        
+
     async def process(self, context):
         """
-        处理消息上下文
-        
+        Process message context
+
         Args:
-            context: 包含消息处理所需所有信息的上下文对象
-            
+            context: Context object containing all information needed for message processing
+
         Returns:
-            bool: 表示是否应该继续处理消息
+            bool: Indicates whether the message should continue processing
         """
-        logger.debug(f"开始执行过滤器: {self.name}")
+        logger.debug(f"Starting filter execution: {self.name}")
         result = await self._process(context)
-        logger.debug(f"过滤器 {self.name} 处理结果: {'通过' if result else '不通过'}")
+        logger.debug(f"Filter {self.name} processing result: {'passed' if result else 'not passed'}")
         return result
-    
+
     @abstractmethod
     async def _process(self, context):
         """
-        具体的处理逻辑，子类需要实现
-        
+        Actual processing logic, must be implemented by subclasses
+
         Args:
-            context: 包含消息处理所需所有信息的上下文对象
-            
+            context: Context object containing all information needed for message processing
+
         Returns:
-            bool: 表示是否应该继续处理消息
+            bool: Indicates whether the message should continue processing
         """
-        pass 
+        pass
