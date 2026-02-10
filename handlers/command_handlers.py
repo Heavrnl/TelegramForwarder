@@ -38,10 +38,10 @@ async def handle_bind_command(event, client, parts):
             else:
                 raise ValueError("Insufficient arguments")
         else:
-            raise ValueError("参数不足")
+            raise ValueError("Insufficient arguments")
     except ValueError:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'用法: /bind <源聊天链接或名称> [目标聊天链接或名称]\n例如:\n/bind https://t.me/channel_name\n/bind "频道 名称"\n/bind https://t.me/source_channel https://t.me/target_channel\n/bind "源频道名称" "目标频道名称"')
+        await reply_and_delete(event,'Usage: /bind <source chat link or name> [target chat link or name]\nExamples:\n/bind https://t.me/channel_name\n/bind "channel name"\n/bind https://t.me/source_channel https://t.me/target_channel\n/bind "source channel name" "target channel name"')
         return
 
     # Check if it is a link
@@ -75,10 +75,10 @@ async def handle_bind_command(event, client, parts):
             if target_chat_input:
                 is_target_link = target_chat_input.startswith(('https://', 't.me/'))
                 if is_target_link:
-                    # 如果是链接，直接获取实体
+                    # If it is a link, get entity directly
                     target_chat_entity = await user_client.get_entity(target_chat_input)
                 else:
-                    # 如果是名称，获取对话列表并查找匹配的第一个
+                    # If it is a name, get dialog list and find the first match
                     async for dialog in user_client.iter_dialogs():
                         if dialog.name and target_chat_input.lower() in dialog.name.lower():
                             target_chat_entity = dialog.entity
@@ -91,10 +91,10 @@ async def handle_bind_command(event, client, parts):
                 # Use current chat as target
                 target_chat_entity = current_chat
 
-            # # 检查是否在绑定自己
+            # # Check if binding to self
             # if str(source_chat_entity.id) == str(target_chat_entity.id):
             #     await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            #     await reply_and_delete(event,'⚠️ 不能将频道/群组绑定到自己')
+            #     await reply_and_delete(event,'⚠️ Cannot bind channel/group to itself')
             #     return
 
         except ValueError:
@@ -247,13 +247,13 @@ async def handle_settings_command(event, command, parts):
         ).all()
 
         # Add logs
-        logger.info(f'Found {len(rules)} 条转发规则')
+        logger.info(f'Found {len(rules)} forwarding rules')
         for rule in rules:
             logger.info(f'Rule ID: {rule.id}, source chat: {rule.source_chat.name}, target chat: {rule.target_chat.name}')
 
         if not rules:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'当前聊天没有任何转发规则')
+            await reply_and_delete(event,'Current chat has no forwarding rules')
             return
 
         # Create rule selection buttons
@@ -292,7 +292,7 @@ async def handle_switch_command(event):
 
         if not current_chat_db:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'当前聊天没有任何转发规则')
+            await reply_and_delete(event,'Current chat has no forwarding rules')
             return
 
         rules = session.query(ForwardRule).filter(
@@ -301,10 +301,10 @@ async def handle_switch_command(event):
 
         if not rules:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'当前聊天没有任何转发规则')
+            await reply_and_delete(event,'Current chat has no forwarding rules')
             return
 
-        # 创建规则选择按钮
+        # Create rule selection buttons
         buttons = []
         for rule in rules:
             source_chat = rule.source_chat
@@ -314,7 +314,7 @@ async def handle_switch_command(event):
             callback_data = f"switch:{source_chat.telegram_chat_id}"
             buttons.append([Button.inline(button_text, callback_data)])
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'请选择要管理的转发规则:', buttons=buttons)
+        await reply_and_delete(event,'Please select a forwarding rule to manage:', buttons=buttons)
     finally:
         session.close()
 
@@ -325,7 +325,7 @@ async def handle_add_command(event, command, parts):
 
     if len(message_text.split(None, 1)) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'Usage: /{command} <keyword1> [keyword2] ...\n例如:\n/{command} keyword1 "key word 2" \'key word 3\'')
+        await reply_and_delete(event,f'Usage: /{command} <keyword1> [keyword2] ...\nExamples:\n/{command} keyword1 "key word 2" \'key word 3\'')
         return
 
     # Separate command and argument parts
@@ -407,12 +407,12 @@ async def handle_replace_command(event, parts):
     message_text = event.message.text
     if len(message_text.split(None, 1)) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'用法: /replace <匹配规则> [替换内容]\n例如:\n/replace 广告  # 删除匹配内容\n/replace 广告 [已替换]\n/replace "广告 文本" [已替换]\n/replace \'广告 文本\' [已替换]')
+        await reply_and_delete(event,'Usage: /replace <match pattern> [replacement content]\nExamples:\n/replace ad  # Delete matched content\n/replace ad [replaced]\n/replace "ad text" [replaced]\n/replace \'ad text\' [replaced]')
         return
 
     # Split arguments directly, keeping regex in original form
     try:
-        # 去掉命令前缀，获取原始参数字符串
+        # Remove command prefix, get raw argument string
         _, args_text = message_text.split(None, 1)
         
         # Split by first space, keeping remaining content unchanged
@@ -429,12 +429,12 @@ async def handle_replace_command(event, parts):
         
     except ValueError as e:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'参数解析错误: {str(e)}\n请确保引号成对出现')
+        await reply_and_delete(event,f'Argument parsing error: {str(e)}\nPlease ensure quotes are properly paired')
         return
         
     if not pattern:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'请提供有效的匹配规则')
+        await reply_and_delete(event,'Please provide a valid match pattern')
         return
 
     session = get_session()
@@ -451,8 +451,8 @@ async def handle_replace_command(event, parts):
         success_count, duplicate_count = await db_ops.add_replace_rules(
             session,
             rule.id,
-            [pattern],  # patterns 参数
-            [content]   # contents 参数
+            [pattern],  # patterns argument
+            [content]   # contents argument
         )
 
         # Ensure replace mode is enabled
@@ -465,7 +465,7 @@ async def handle_replace_command(event, parts):
         rule_type = "full text replacement" if pattern == ".*" else "regex replacement"
         action_type = "delete" if not content else "replace"
 
-        # 构建回复消息
+        # Build reply message
         result_text = f'Added {rule_type} rule:\n'
         if success_count > 0:
             result_text += f'Match: {pattern}\n'
@@ -506,7 +506,7 @@ async def handle_list_keyword_command(event):
             'keyword',
             keywords,
             lambda i, kw: f'{i}. {kw.keyword}{" (regex)" if kw.is_regex else ""}',
-            f'关键字列表\n当前模式: {"黑名单" if rule.add_mode == AddMode.BLACKLIST else "whitelist"}\nRule: from {source_chat.name}'
+            f'Keyword List\nCurrent mode: {"blacklist" if rule.add_mode == AddMode.BLACKLIST else "whitelist"}\nRule: from {source_chat.name}'
         )
 
     finally:
@@ -531,7 +531,7 @@ async def handle_list_replace_command(event):
             'replace',
             replace_rules,
             lambda i, rr: f'{i}. Match: {rr.pattern} -> {"delete" if not rr.content else f"replace with: {rr.content}"}',
-            f'替换规则列表\n规则: 来自 {source_chat.name}'
+            f'Replace Rule List\nRule: from {source_chat.name}'
         )
 
     finally:
@@ -540,13 +540,13 @@ async def handle_list_replace_command(event):
 async def handle_remove_command(event, command, parts):
     """Handle remove_keyword and remove_replace commands"""
     message_text = event.message.text
-    logger.info(f"收到原始消息: {message_text}")
+    logger.info(f"Received raw message: {message_text}")
 
     # If it is a replace rule, keep the original ID deletion method
     if command == 'remove_replace':
         if len(parts) < 2:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,f'用法: /{command} <ID1> [ID2] [ID3] ...\n例如: /{command} 1 2 3')
+            await reply_and_delete(event,f'Usage: /{command} <ID1> [ID2] [ID3] ...\nExample: /{command} 1 2 3')
             return
 
         try:
@@ -558,7 +558,7 @@ async def handle_remove_command(event, command, parts):
     elif command in ['remove_keyword_by_id', 'rkbi']:  # Add handling for deleting keywords by ID
         if len(parts) < 2:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,f'用法: /{command} <ID1> [ID2] [ID3] ...\n例如: /{command} 1 2 3')
+            await reply_and_delete(event,f'Usage: /{command} <ID1> [ID2] [ID3] ...\nExample: /{command} 1 2 3')
             return
 
         try:
@@ -566,32 +566,32 @@ async def handle_remove_command(event, command, parts):
             logger.info(f"Preparing to delete keywords by ID: {ids_to_remove}")
         except ValueError:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'ID必须是数字')
+            await reply_and_delete(event,'ID must be a number')
             return
     else:  # remove_keyword
         if len(message_text.split(None, 1)) < 2:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,f'用法: /{command} <关键字1> [关键字2] ...\n例如:\n/{command} keyword1 "key word 2" \'key word 3\'')
+            await reply_and_delete(event,f'Usage: /{command} <keyword1> [keyword2] ...\nExamples:\n/{command} keyword1 "key word 2" \'key word 3\'')
             return
 
-        # 分离命令和参数部分
+        # Separate command and argument parts
         _, args_text = message_text.split(None, 1)
-        logger.info(f"分离出的参数部分: {args_text}")
+        logger.info(f"Separated argument part: {args_text}")
 
         try:
-            # 使用 shlex 来正确处理带引号的参数
-            logger.info("开始使用 shlex 解析参数")
+            # Use shlex to properly handle quoted arguments
+            logger.info("Starting to parse arguments with shlex")
             keywords_to_remove = shlex.split(args_text)
             logger.info(f"shlex parse result: {keywords_to_remove}")
         except ValueError as e:
-            logger.error(f"shlex 解析出错: {str(e)}")
+            logger.error(f"shlex parse error: {str(e)}")
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'参数格式错误：请确保引号正确配对')
+            await reply_and_delete(event,'Argument format error: please ensure quotes are properly paired')
             return
 
         if not keywords_to_remove:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'请提供至少一个关键字')
+            await reply_and_delete(event,'Please provide at least one keyword')
             return
 
     # Define item_type outside try block
@@ -648,12 +648,12 @@ async def handle_remove_command(event, command, parts):
                 await reply_and_delete(event,f"No matching keywords found in {mode_name}")
 
         elif command in ['remove_keyword_by_id', 'rkbi']:
-            # 获取当前模式下的关键字
+            # Get keywords under current mode
             items = await db_ops.get_keywords(session, rule.id, rule_mode)
 
             if not items:
                 await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                await reply_and_delete(event,f'当前规则在{mode_name}模式下没有任何关键字')
+                await reply_and_delete(event,f'Current rule has no keywords in {mode_name} mode')
                 return
 
             # Check if IDs are valid
@@ -672,22 +672,22 @@ async def handle_remove_command(event, command, parts):
             for id in valid_ids:
                 removed_keywords.append(items[id - 1].keyword)
                 
-            # 使用db_ops删除关键字（支持同步功能）
+            # Use db_ops to delete keywords (supports sync feature)
             removed_count, _ = await db_ops.delete_keywords(session, rule.id, valid_ids)
             session.commit()
-            logger.info(f"成功删除 {removed_count} 个关键字")
+            logger.info(f"Successfully deleted {removed_count} keywords")
 
-            # 构建回复消息
+            # Build reply message
             if removed_count > 0:
                 keywords_text = '\n'.join(f'- {k}' for k in removed_keywords)
                 await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
                 await reply_and_delete(event,
-                    f"已从{mode_name}中删除 {removed_count} 个关键字:\n"
+                    f"Deleted {removed_count} keywords from {mode_name}:\n"
                     f"{keywords_text}"
                 )
             else:
                 await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                await reply_and_delete(event,f"在{mode_name}中未找到匹配的关键字")
+                await reply_and_delete(event,f"No matching keywords found in {mode_name}")
 
         else:  # remove_replace
             # Handle replace rule deletion (keep original logic)
@@ -701,7 +701,7 @@ async def handle_remove_command(event, command, parts):
             invalid_ids = [id for id in ids_to_remove if id < 1 or id > max_id]
             if invalid_ids:
                 await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                await reply_and_delete(event,f'无效的ID: {", ".join(map(str, invalid_ids))}')
+                await reply_and_delete(event,f'Invalid ID(s): {", ".join(map(str, invalid_ids))}')
                 return
 
             await db_ops.delete_replace_rules(session, rule.id, ids_to_remove)
@@ -795,18 +795,18 @@ async def handle_help_command(event, command):
         "/delete_rule(/dr) <rule ID> [rule ID] [rule ID] ... - Delete specified rules\n\n"
 
         "**Keyword Management**\n"
-        "/add(/a) <关键字> [关键字] [\"关 键 字\"] [\'关 键 字\'] ... - Add plain keywords\n"
-        "/add_regex(/ar) <正则表达式> [正则表达式] [正则表达式] ... - Add regular expressions\n"
-        "/add_all(/aa) <关键字> [关键字] [关键字] ... - Add plain keywords to all rules bound to current channel\n"
-        "/add_regex_all(/ara) <正则表达式> [正则表达式] [正则表达式] ... - Add regular expressions to all rules\n"
+        "/add(/a) <keyword> [keyword] [\"key word\"] [\'key word\'] ... - Add plain keywords\n"
+        "/add_regex(/ar) <regex> [regex] [regex] ... - Add regular expressions\n"
+        "/add_all(/aa) <keyword> [keyword] [keyword] ... - Add plain keywords to all rules bound to current channel\n"
+        "/add_regex_all(/ara) <regex> [regex] [regex] ... - Add regular expressions to all rules\n"
         "/list_keyword(/lk) - List all keywords\n"
-        "/remove_keyword(/rk) <关键词1> [\"关 键 字\"] [\'关 键 字\'] ... - Remove keywords\n"
+        "/remove_keyword(/rk) <keyword1> [\"key word\"] [\'key word\'] ... - Remove keywords\n"
         "/remove_keyword_by_id(/rkbi) <ID> [ID] [ID] ... - Remove keywords by ID\n"
-        "/remove_all_keyword(/rak) [关键字] [\"关 键 字\"] [\'关 键 字\'] ... - Remove specified keywords from all rules bound to current channel\n"
+        "/remove_all_keyword(/rak) [keyword] [\"key word\"] [\'key word\'] ... - Remove specified keywords from all rules bound to current channel\n"
         "/clear_all_keywords(/cak) - Clear all keywords of current rule\n"
         "/clear_all_keywords_regex(/cakr) - Clear all regex keywords of current rule\n"
-        "/copy_keywords(/ck) <规则ID> - Copy keywords from specified rule to current rule\n"
-        "/copy_keywords_regex(/ckr) <规则ID> - Copy regex keywords from specified rule to current rule\n\n"
+        "/copy_keywords(/ck) <rule ID> - Copy keywords from specified rule to current rule\n"
+        "/copy_keywords_regex(/ckr) <rule ID> - Copy regex keywords from specified rule to current rule\n\n"
 
         "**Replace Rule Management**\n"
         "/replace(/r) <regex> [replacement content] - Add replace rule\n"
@@ -814,7 +814,7 @@ async def handle_help_command(event, command):
         "/list_replace(/lrp) - List all replace rules\n"
         "/remove_replace(/rr) <index> - Remove replace rule\n"
         "/clear_all_replace(/car) - Clear all replace rules of current rule\n"
-        "/copy_replace(/crp) <规则ID> - Copy replace rules from specified rule to current rule\n\n"
+        "/copy_replace(/crp) <rule ID> - Copy replace rules from specified rule to current rule\n\n"
 
         "**Import/Export**\n"
         "/export_keyword(/ek) - Export keywords of current rule\n"
@@ -961,7 +961,7 @@ async def handle_import_command(event, command):
                             success_count += 1
                             logger.info(f'Successfully added replace rule: pattern="{pattern}", content="{content}"')
 
-                            # 确保启用替换模式
+                            # Ensure replace mode is enabled
                             if not rule.is_replace:
                                 rule.is_replace = True
                                 logger.info('Replace mode enabled')
@@ -973,7 +973,7 @@ async def handle_import_command(event, command):
                     session.commit()
                     logger.info(f'Import complete, successfully imported {success_count} replace rules')
                     await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-                    await reply_and_delete(event,f'成功导入 {success_count} 条替换规则\n规则: 来自 {source_chat.name}')
+                    await reply_and_delete(event,f'Successfully imported {success_count} replace rules\nRule: from {source_chat.name}')
 
 
                 else:
@@ -987,7 +987,7 @@ async def handle_import_command(event, command):
                             parts = line.split()
                             if len(parts) < 2:
                                 raise ValueError("Invalid line format, at least keyword and flag required")
-                            flag_str = parts[-1]  # 最后一个部分为标志
+                            flag_str = parts[-1]  # Last part is the flag
                             if flag_str not in ('0', '1'):
                                 raise ValueError("Flag value must be 0 or 1")
                             is_blacklist = (flag_str == '1')  # Convert to boolean
@@ -1020,15 +1020,15 @@ async def handle_import_command(event, command):
                             continue
 
                     session.commit()
-                    keyword_type = "regex" if is_regex else "关键字"
+                    keyword_type = "regex" if is_regex else "keyword"
                     result_text = f'Successfully imported {success_count} {keyword_type}(s)'
                     if duplicate_count > 0:
-                        result_text += f'\n跳过重复: {duplicate_count} 个'
-                    result_text += f'\n规则: 来自 {source_chat.name}'
+                        result_text += f'\nSkipped duplicates: {duplicate_count}'
+                    result_text += f'\nRule: from {source_chat.name}'
                     await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
                     await reply_and_delete(event,result_text)
             finally:
-                # 删除临时文件
+                # Delete temporary file
                 if os.path.exists(file_path):
                     os.remove(file_path)
 
@@ -1089,7 +1089,7 @@ async def handle_ufb_bind_command(event, command):
         parts = event.message.text.split()
         if len(parts) < 2 or len(parts) > 3:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'用法: /ufb_bind <域名> [类型]\n类型可选: main, content, main_username, content_username\n例如: /ufb_bind example.com main')
+            await reply_and_delete(event,'Usage: /ufb_bind <domain> [type]\nType options: main, content, main_username, content_username\nExample: /ufb_bind example.com main')
             return
 
         domain = parts[1].strip().lower()
@@ -1108,7 +1108,7 @@ async def handle_ufb_bind_command(event, command):
         session.commit()
 
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'已绑定 UFB 域名: {domain}\n类型: {item}\n规则: 来自 {source_chat.name}')
+        await reply_and_delete(event,f'UFB domain bound: {domain}\nType: {item}\nRule: from {source_chat.name}')
 
     except Exception as e:
         session.rollback()
@@ -1134,7 +1134,7 @@ async def handle_ufb_unbind_command(event, command):
         session.commit()
 
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'UFB domain unbound: {old_domain or "none"}\n规则: 来自 {source_chat.name}')
+        await reply_and_delete(event,f'UFB domain unbound: {old_domain or "none"}\nRule: from {source_chat.name}')
 
     except Exception as e:
         session.rollback()
@@ -1210,11 +1210,11 @@ async def handle_clear_all_keywords_regex_command(event, command):
 
         session.commit()
 
-        # 发送成功消息
+        # Send success message
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,
             f"✅ Cleared all regex keywords for rule `{rule.id}`\n"
-            f"源聊天: {source_chat.name}\n"
+            f"Source chat: {source_chat.name}\n"
             f"Total deleted: {keyword_count} regex keywords",
             parse_mode='markdown'
         )
@@ -1254,11 +1254,11 @@ async def handle_clear_all_replace_command(event, command):
 
         session.commit()
 
-        # 发送成功消息
+        # Send success message
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,
             f"✅ Cleared all replace rules for rule `{rule.id}`\n"
-            f"源聊天: {source_chat.name}\n"
+            f"Source chat: {source_chat.name}\n"
             f"Total deleted: {replace_count} replace rules\n"
             "Replace mode has been automatically disabled",
             parse_mode='markdown'
@@ -1289,7 +1289,7 @@ async def handle_copy_keywords_command(event, command):
 
     session = get_session()
     try:
-        # 获取当前规则
+        # Get current rule
         rule_info = await get_current_rule(session, event)
         if not rule_info:
             return
@@ -1354,22 +1354,22 @@ async def handle_copy_keywords_regex_command(event, command):
         source_rule_id = int(parts[1])
     except ValueError:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'规则ID必须是数字')
+        await reply_and_delete(event,'Rule ID must be a number')
         return
 
     session = get_session()
     try:
-        # 获取当前规则
+        # Get current rule
         rule_info = await get_current_rule(session, event)
         if not rule_info:
             return
         target_rule, source_chat = rule_info
 
-        # 获取源规则
+        # Get source rule
         source_rule = session.query(ForwardRule).get(source_rule_id)
         if not source_rule:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,f'找不到规则ID: {source_rule_id}')
+            await reply_and_delete(event,f'Cannot find rule ID: {source_rule_id}')
             return
 
         # Copy regex keywords
@@ -1395,12 +1395,12 @@ async def handle_copy_keywords_regex_command(event, command):
 
         session.commit()
 
-        # 发送结果消息
+        # Send result message
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,
             f"✅ Copied regex keywords from rule `{source_rule_id}` to rule `{target_rule.id}`\n"
-            f"成功复制: {success_count} 个\n"
-            f"跳过重复: {skip_count} 个",
+            f"Successfully copied: {success_count}\n"
+            f"Skipped duplicates: {skip_count}",
             parse_mode='markdown'
         )
 
@@ -1424,22 +1424,22 @@ async def handle_copy_replace_command(event, command):
         source_rule_id = int(parts[1])
     except ValueError:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'规则ID必须是数字')
+        await reply_and_delete(event,'Rule ID must be a number')
         return
 
     session = get_session()
     try:
-        # 获取当前规则
+        # Get current rule
         rule_info = await get_current_rule(session, event)
         if not rule_info:
             return
         target_rule, source_chat = rule_info
 
-        # 获取源规则
+        # Get source rule
         source_rule = session.query(ForwardRule).get(source_rule_id)
         if not source_rule:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,f'找不到规则ID: {source_rule_id}')
+            await reply_and_delete(event,f'Cannot find rule ID: {source_rule_id}')
             return
 
         # Copy replace rules
@@ -1463,12 +1463,12 @@ async def handle_copy_replace_command(event, command):
 
         session.commit()
 
-        # 发送结果消息
+        # Send result message
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,
             f"✅ Copied replace rules from rule `{source_rule_id}` to rule `{target_rule.id}`\n"
-            f"成功复制: {success_count} 个\n"
-            f"跳过重复: {skip_count} 个\n",
+            f"Successfully copied: {success_count}\n"
+            f"Skipped duplicates: {skip_count}\n",
             parse_mode='markdown'
         )
 
@@ -1504,12 +1504,12 @@ async def handle_copy_rule_command(event, command):
             use_current_rule = True
     except ValueError:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'规则ID必须是数字')
+        await reply_and_delete(event,'Rule ID must be a number')
         return
 
     session = get_session()
     try:
-        # 获取源规则
+        # Get source rule
         source_rule = session.query(ForwardRule).get(source_rule_id)
         if not source_rule:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
@@ -1518,7 +1518,7 @@ async def handle_copy_rule_command(event, command):
 
         # Get target rule
         if use_current_rule:
-            # 获取当前规则
+            # Get current rule
             rule_info = await get_current_rule(session, event)
             if not rule_info:
                 return
@@ -1568,7 +1568,7 @@ async def handle_copy_rule_command(event, command):
         # Copy regex keywords
         for keyword in source_rule.keywords:
             if keyword.is_regex:
-                # 检查是否已存在
+                # Check if already exists
                 exists = any(k.keyword == keyword.keyword and k.is_regex and k.is_blacklist == keyword.is_blacklist
                              for k in target_rule.keywords)
                 if not exists:
@@ -1632,7 +1632,7 @@ async def handle_copy_rule_command(event, command):
                 session.add(target_media_types)
             else:
                 # If settings already exist, update existing settings
-                # 使用inspect自动复制所有字段（除了id和rule_id）
+                # Use inspect to automatically copy all fields (except id and rule_id)
                 media_inspector = inspect(MediaTypes)
                 for column in media_inspector.columns:
                     column_name = column.key
@@ -1736,11 +1736,11 @@ async def handle_export_replace_command(event, client):
                 replace_file
             )
 
-            # 然后单独发送说明文字
-            await respond_and_delete(event,(f"规则: {source_chat.name}"))
+            # Then send description text separately
+            await respond_and_delete(event,(f"Rule: {source_chat.name}"))
 
         finally:
-            # 删除临时文件
+            # Delete temporary file
             if os.path.exists(replace_file):
                 os.remove(replace_file)
 
@@ -1755,38 +1755,38 @@ async def handle_export_replace_command(event, client):
 async def handle_remove_all_keyword_command(event, command, parts):
     """Handle remove_all_keyword command"""
     message_text = event.message.text
-    logger.info(f"收到原始消息: {message_text}")
+    logger.info(f"Received raw message: {message_text}")
 
     if len(message_text.split(None, 1)) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'用法: /{command} <关键字1> [关键字2] ...\n例如:\n/{command} keyword1 "key word 2" \'key word 3\'')
+        await reply_and_delete(event,f'Usage: /{command} <keyword1> [keyword2] ...\nExamples:\n/{command} keyword1 "key word 2" \'key word 3\'')
         return
 
-    # 分离命令和参数部分
+    # Separate command and argument parts
     _, args_text = message_text.split(None, 1)
-    logger.info(f"分离出的参数部分: {args_text}")
+    logger.info(f"Separated argument part: {args_text}")
 
     try:
-        # 使用 shlex 来正确处理带引号的参数
-        logger.info("开始使用 shlex 解析参数")
+        # Use shlex to properly handle quoted arguments
+        logger.info("Starting to parse arguments with shlex")
         keywords_to_remove = shlex.split(args_text)
-        logger.info(f"shlex 解析结果: {keywords_to_remove}")
+        logger.info(f"shlex parse result: {keywords_to_remove}")
     except ValueError as e:
-        logger.error(f"shlex 解析出错: {str(e)}")
-        # 处理未闭合的引号等错误
+        logger.error(f"shlex parse error: {str(e)}")
+        # Handle errors like unclosed quotes
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'参数格式错误：请确保引号正确配对')
+        await reply_and_delete(event,'Argument format error: please ensure quotes are properly paired')
         return
 
     if not keywords_to_remove:
-        logger.warning("没有提供任何关键字")
+        logger.warning("No keywords provided")
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'请提供至少一个关键字')
+        await reply_and_delete(event,'Please provide at least one keyword')
         return
 
     session = get_session()
     try:
-        # 获取当前规则以确定黑白名单模式
+        # Get current rule to determine blacklist/whitelist mode
         rule_info = await get_current_rule(session, event)
         if not rule_info:
             return
@@ -1831,7 +1831,7 @@ async def handle_remove_all_keyword_command(event, command, parts):
 
         session.commit()
 
-        # 构建回复消息
+        # Build reply message
         if total_removed > 0:
             result_text = f"Deleted keywords from {mode_name}:\n\n"
             for rule_id, keywords in removed_details.items():
@@ -1842,11 +1842,11 @@ async def handle_remove_all_keyword_command(event, command, parts):
                     result_text += "\n\n"
             result_text += f"Total deleted: {total_removed} keywords"
 
-            logger.info(f"发送回复消息: {result_text}")
+            logger.info(f"Sending reply message: {result_text}")
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
             await reply_and_delete(event,result_text)
         else:
-            msg = f"在{mode_name}中未找到匹配的关键字"
+            msg = f"No matching keywords found in {mode_name}"
             logger.info(msg)
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
             await reply_and_delete(event,msg)
@@ -1862,29 +1862,29 @@ async def handle_remove_all_keyword_command(event, command, parts):
 async def handle_add_all_command(event, command, parts):
     """Handle add_all and add_regex_all commands"""
     message_text = event.message.text
-    logger.info(f"收到原始消息: {message_text}")
+    logger.info(f"Received raw message: {message_text}")
 
     if len(message_text.split(None, 1)) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'用法: /{command} <关键字1> [关键字2] ...\n例如:\n/{command} keyword1 "key word 2" \'key word 3\'')
+        await reply_and_delete(event,f'Usage: /{command} <keyword1> [keyword2] ...\nExamples:\n/{command} keyword1 "key word 2" \'key word 3\'')
         return
 
-    # 分离命令和参数部分
+    # Separate command and argument parts
     _, args_text = message_text.split(None, 1)
-    logger.info(f"分离出的参数部分: {args_text}")
+    logger.info(f"Separated argument part: {args_text}")
 
     keywords = []
     if command == 'add_all':
         try:
-            # 使用 shlex 来正确处理带引号的参数
-            logger.info("开始使用 shlex 解析参数")
+            # Use shlex to properly handle quoted arguments
+            logger.info("Starting to parse arguments with shlex")
             keywords = shlex.split(args_text)
-            logger.info(f"shlex 解析结果: {keywords}")
+            logger.info(f"shlex parse result: {keywords}")
         except ValueError as e:
-            logger.error(f"shlex 解析出错: {str(e)}")
-            # 处理未闭合的引号等错误
+            logger.error(f"shlex parse error: {str(e)}")
+            # Handle errors like unclosed quotes
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'参数格式错误：请确保引号正确配对')
+            await reply_and_delete(event,'Argument format error: please ensure quotes are properly paired')
             return
     else:
         # add_regex_all command uses simple split, keeping regex in original form
@@ -1895,9 +1895,9 @@ async def handle_add_all_command(event, command, parts):
         logger.info(f"add_regex_all command, using raw arguments: {keywords}")
 
     if not keywords:
-        logger.warning("没有提供任何关键字")
+        logger.warning("No keywords provided")
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'请提供至少一个关键字')
+        await reply_and_delete(event,'Please provide at least one keyword')
         return
 
     session = get_session()
@@ -1930,15 +1930,15 @@ async def handle_add_all_command(event, command, parts):
 
         session.commit()
 
-        # 构建回复消息
-        keyword_type = "regex" if command == "add_regex_all" else "关键字"
+        # Build reply message
+        keyword_type = "regex" if command == "add_regex_all" else "keyword"
         keywords_text = '\n'.join(f'- {k}' for k in keywords)
         result_text = f'Added {success_count} {keyword_type}(s)\n'
         if duplicate_count > 0:
             result_text += f'Skipped duplicates: {duplicate_count}\n'
         result_text += f'Keyword list:\n{keywords_text}'
 
-        logger.info(f"发送回复消息: {result_text}")
+        logger.info(f"Sending reply message: {result_text}")
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,result_text)
 
@@ -1946,7 +1946,7 @@ async def handle_add_all_command(event, command, parts):
         session.rollback()
         logger.error(f'Error batch adding keywords: {str(e)}\n{traceback.format_exc()}')
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'添加关键字时出错，请检查日志')
+        await reply_and_delete(event,'Error adding keywords, please check logs')
     finally:
         session.close()
 
@@ -1956,18 +1956,18 @@ async def handle_replace_all_command(event, parts):
     
     if len(message_text.split(None, 1)) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'用法: /replace_all <匹配规则> [替换内容]\n例如:\n/replace_all 广告  # 删除匹配内容\n/replace_all 广告 [已替换]')
+        await reply_and_delete(event,'Usage: /replace_all <match pattern> [replacement content]\nExamples:\n/replace_all ad  # Delete matched content\n/replace_all ad [replaced]')
         return
 
-    # 直接分割参数，保持正则表达式的原始形式
+    # Split arguments directly, keeping regex in original form
     _, args_text = message_text.split(None, 1)
     
-    # 按第一个空格分割，保持后续内容不变
+    # Split by first space, keeping remaining content unchanged
     parts = args_text.split(None, 1)
     pattern = parts[0]
     content = parts[1] if len(parts) > 1 else ''
     
-    logger.info(f"解析替换命令参数: pattern='{pattern}', content='{content}'")
+    logger.info(f"Parsed replace command arguments: pattern='{pattern}', content='{content}'")
 
     session = get_session()
     try:
@@ -1992,19 +1992,19 @@ async def handle_replace_all_command(event, parts):
             total_success += success_count
             total_duplicate += duplicate_count
 
-            # 确保启用替换模式
+            # Ensure replace mode is enabled
             if success_count > 0 and not rule.is_replace:
                 rule.is_replace = True
 
         session.commit()
 
-        # 构建回复消息
-        action_type = "删除" if not content else "替换"
+        # Build reply message
+        action_type = "delete" if not content else "replace"
         result_text = f'Added replace rules for {len(rules)} rules:\n'
         if total_success > 0:
             result_text += f'Successfully added: {total_success}\n'
             result_text += f'Match pattern: {pattern}\n'
-            result_text += f'动作: {action_type}\n'
+            result_text += f'Action: {action_type}\n'
             if content:
                 result_text += f'Replace with: {content}\n'
         if total_duplicate > 0:
@@ -2017,7 +2017,7 @@ async def handle_replace_all_command(event, parts):
         session.rollback()
         logger.error(f'Error batch adding replace rules: {str(e)}')
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'添加替换规则时出错，请检查日志')
+        await reply_and_delete(event,'Error adding replace rules, please check logs')
     finally:
         session.close()
 
@@ -2092,7 +2092,7 @@ async def handle_list_rule_command(event, command, parts):
         if page < total_pages:
             nav_row.append(Button.inline('Next ➡️', f'page_rule:{page+1}'))
         else:
-            nav_row.append(Button.inline('➡️', 'noop'))  # 禁用状态的按钮
+            nav_row.append(Button.inline('➡️', 'noop'))  # Disabled state button
 
         buttons.append(nav_row)
 
@@ -2112,14 +2112,14 @@ async def handle_delete_rule_command(event, command, parts):
     """Handle delete_rule command"""
     if len(parts) < 2:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,f'用法: /{command} <ID1> [ID2] [ID3] ...\n例如: /{command} 1 2 3')
+        await reply_and_delete(event,f'Usage: /{command} <ID1> [ID2] [ID3] ...\nExample: /{command} 1 2 3')
         return
 
     try:
         ids_to_remove = [int(x) for x in parts[1:]]
     except ValueError:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'ID必须是数字')
+        await reply_and_delete(event,'ID must be a number')
         return
 
     session = get_session()
