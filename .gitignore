@@ -1,7 +1,7 @@
-# 环境变量文件
+# Environment variable files
 .env
 
-# 数据库文件
+# Database files
 *.db
 
 # Python
@@ -9,14 +9,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# 虚拟环境
+# Virtual environments
 venv/
 env/
 ENV/
 
-# Telethon session 文件
+# Telethon session files
 *.session
-*.session-journal 
+*.session-journal
 /.idea
 /example
 /config
