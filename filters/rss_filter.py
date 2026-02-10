@@ -17,77 +17,77 @@ logger = logging.getLogger(__name__)
 
 class RSSFilter(BaseFilter):
     """
-    RSS过滤器，用于将符合条件的消息添加到RSS订阅源中
+    RSS filter, used to add messages that meet conditions to the RSS feed
     """
-    
+
     def __init__(self):
         super().__init__()
         self.rss_host = RSS_HOST
         self.rss_port = RSS_PORT
         self.rss_base_url = f"http://{self.rss_host}:{self.rss_port}"
-        
-        # 使用统一的路径常量
+
+        # Use unified path constants
         self.rss_media_path = RSS_MEDIA_DIR
         self.temp_dir = TEMP_DIR
-        
-        logger.info(f"RSS媒体文件根目录: {self.rss_media_path}")
-        logger.info(f"临时文件存储路径: {self.temp_dir}")
-        
-        # 确保媒体文件存储根目录存在
+
+        logger.info(f"RSS media file root directory: {self.rss_media_path}")
+        logger.info(f"Temporary file storage path: {self.temp_dir}")
+
+        # Ensure the media file storage root directory exists
         Path(self.rss_media_path).mkdir(parents=True, exist_ok=True)
-    
+
     def _get_rule_media_path(self, rule_id):
-        """获取规则特定的媒体目录"""
+        """Get the rule-specific media directory"""
         return get_rule_media_dir(rule_id)
-    
+
     async def _process(self, context):
-        """处理RSS过滤器逻辑"""
-        
+        """Process RSS filter logic"""
+
         if not RSS_ENABLED:
-            logger.info("RSS未启用，跳过RSS处理")
+            logger.info("RSS is not enabled, skipping RSS processing")
             return True
-        
+
         if not context.should_forward:
             return False
-        
+
         db_ops = await get_db_ops()
         session = get_session()
         rss_config = await db_ops.get_rss_config(session, context.rule.id)
-        logger.info(f"规则ID: {context.rule.id}")
-        logger.info(f"RSS配置: {rss_config}")
+        logger.info(f"Rule ID: {context.rule.id}")
+        logger.info(f"RSS config: {rss_config}")
 
-        # 检查RSS配置是否存在
+        # Check if RSS configuration exists
         if rss_config is None:
-            logger.error(f"找不到规则ID为 {context.rule.id} 的RSS配置，跳过RSS处理")
-            session.close()
-            return True
-        
-        # 检查是否启用RSS
-        if not rss_config.enable_rss:
-            logger.info(f"规则ID为 {context.rule.id} 的RSS未启用，跳过RSS处理")
+            logger.error(f"Cannot find RSS configuration for rule ID {context.rule.id}, skipping RSS processing")
             session.close()
             return True
 
-        # 执行RSS规则前，先确保媒体文件已经下载
-        # 媒体组消息需要特殊处理
+        # Check if RSS is enabled
+        if not rss_config.enable_rss:
+            logger.info(f"RSS is not enabled for rule ID {context.rule.id}, skipping RSS processing")
+            session.close()
+            return True
+
+        # Before executing RSS rule, ensure media files have been downloaded
+        # Media group messages need special handling
         if context.is_media_group:
             rule = context.rule
             await self._process_media_group(context, rule)
         else:
-            # 获取消息和规则
+            # Get message and rule
             message = context.event.message
             client = context.client
             rule = context.rule
-            
+
             try:
-                # 准备条目数据
+                # Prepare entry data
                 entry_data = await self._prepare_entry_data(client, message, rule, context)
-                
-                # 如果准备数据失败，记录错误并尝试生成简单的数据
+
+                # If data preparation failed, log error and try to generate simple data
                 if entry_data is None:
-                    logger.warning("生成RSS条目数据失败，尝试创建简单数据")
-                    # 尝试从消息中提取最基本的信息
-                    message_text = getattr(message, 'text', '') or getattr(message, 'caption', '') or '文件消息'
+                    logger.warning("Failed to generate RSS entry data, attempting to create simple data")
+                    # Try to extract the most basic information from the message
+                    message_text = getattr(message, 'text', '') or getattr(message, 'caption', '') or 'File message'
                     entry_data = {
                         "id": str(message.id),
                         "title": message_text[:20] + ('...' if len(message_text) > 20 else ''),
@@ -97,8 +97,8 @@ class RSSFilter(BaseFilter):
                         "link": "",
                         "media": []
                     }
-                    
-                    # 如果消息有媒体，尝试处理
+
+                    # If the message has media, try to process it
                     if hasattr(message, 'media') and message.media:
                         media_info = await self._process_media(client, message, context)
                         if media_info:
@@ -106,56 +106,56 @@ class RSSFilter(BaseFilter):
                                 entry_data["media"].extend(media_info)
                             else:
                                 entry_data["media"].append(media_info)
-                
-                # 发送到RSS服务
+
+                # Send to RSS service
                 if entry_data:
                     success = await self._send_to_rss_service(rule.id, entry_data)
                     if success:
-                        logger.info(f"成功将消息添加到规则 {rule.id} 的RSS订阅源")
+                        logger.info(f"Successfully added message to RSS feed for rule {rule.id}")
                     else:
-                        logger.error(f"无法将消息添加到规则 {rule.id} 的RSS订阅源")
+                        logger.error(f"Failed to add message to RSS feed for rule {rule.id}")
                 else:
-                    logger.error("无法生成有效的RSS条目数据")
-            
+                    logger.error("Unable to generate valid RSS entry data")
+
             except Exception as e:
-                logger.error(f"RSS处理时出错: {str(e)}")
-        
+                logger.error(f"Error during RSS processing: {str(e)}")
+
         if rule.only_rss:
-            logger.info('只转发到RSS，RSS过滤器已完成，结束过滤链')
+            logger.info('Only forwarding to RSS, RSS filter completed, ending filter chain')
             return False
-        
+
         return True
-    
+
     async def _prepare_entry_data(self, client, message, rule, context=None):
-        """准备RSS条目数据"""
+        """Prepare RSS entry data"""
         try:
-            # 获取标题（使用自定义方法）
+            # Get title (using custom method)
             title = self._get_message_title(message)
-            
-            # 安全获取消息内容
+
+            # Safely get message content
             content = ""
             if hasattr(message, 'text') and message.text:
                 content = message.text
             elif hasattr(message, 'caption') and message.caption:
                 content = message.caption
-            
-            # 获取发送人名称
+
+            # Get sender name
             author = await self._get_sender_name(client, message)
-            
-            # 获取消息链接（如果有）
+
+            # Get message link (if available)
             link = self._get_message_link(message)
-            
-            # 获取媒体（如果有）
+
+            # Get media (if available)
             media_list = []
-            
-            # 处理媒体组消息
+
+            # Process media group messages
             if context and hasattr(context, "is_media_group") and context.is_media_group:
-                logger.debug("处理媒体组消息")
-                # 由于媒体组已经在其他地方处理，这里不再重复处理
-                # 仅记录
-                logger.debug("媒体组在其他地方处理")
+                logger.debug("Processing media group messages")
+                # Since the media group has already been processed elsewhere, no need to process again here
+                # Only log
+                logger.debug("Media group processed elsewhere")
             else:
-                # 处理单个消息的媒体
+                # Process single message media
                 media_info = await self._process_media(client, message, context)
                 if media_info:
                     if isinstance(media_info, list):
@@ -163,28 +163,28 @@ class RSSFilter(BaseFilter):
                     else:
                         media_list.append(media_info)
                 elif media_list:
-                    logger.debug(f"_process_media返回了多个媒体: {len(media_list)}")
-                
-                # 检查媒体是否在skipped_media列表中
+                    logger.debug(f"_process_media returned multiple media: {len(media_list)}")
+
+                # Check if media is in the skipped_media list
                 if context and hasattr(context, 'skipped_media') and context.skipped_media:
                     for skipped_msg, size, name in context.skipped_media:
                         if skipped_msg.id == message.id:
-                            logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，添加标记到条目数据")
-                            # 可以选择在content中添加标记，表明该媒体因大小超限而被跳过
-                            note = f"\n\n[注意：包含超过大小限制的媒体文件 {name or ''}，大小: {size}MB]"
+                            logger.info(f"Media file {name or ''} (size: {size}MB) is in the skipped_media list, adding marker to entry data")
+                            # Optionally add a marker in content indicating the media was skipped due to size limit
+                            note = f"\n\n[Note: Contains media file exceeding size limit {name or ''}, size: {size}MB]"
                             if hasattr(message, 'text') and message.text:
                                 content = message.text + note
                             elif hasattr(message, 'caption') and message.caption:
                                 content = message.caption + note
                             else:
                                 content = note.strip()
-                
-                # 尝试记录媒体信息
+
+                # Try to log media information
                 if media_list:
                     for i, media in enumerate(media_list):
-                        logger.debug(f"媒体{i+1}: {media.get('filename', 'unknown')}, 类型: {media.get('type', 'unknown')}, 原始文件名: {media.get('original_name', 'unknown')}")
-            
-            # 构建条目数据
+                        logger.debug(f"Media {i+1}: {media.get('filename', 'unknown')}, type: {media.get('type', 'unknown')}, original filename: {media.get('original_name', 'unknown')}")
+
+            # Build entry data
             entry_data = {
                 "id": str(message.id),
                 "title": title,
@@ -196,147 +196,147 @@ class RSSFilter(BaseFilter):
                 "original_link": context.original_link,
                 "sender_info": context.sender_info,
             }
-            
+
             return entry_data
-            
+
         except Exception as e:
-            logger.error(f"准备RSS条目数据时出错: {str(e)}")
+            logger.error(f"Error preparing RSS entry data: {str(e)}")
             return None
-    
+
     def _get_message_title(self, message):
-        """获取消息标题"""
-        # 使用消息的前20个字符作为标题
+        """Get message title"""
+        # Use the first 20 characters of the message as the title
         text = ""
         if hasattr(message, 'text') and message.text:
             text = message.text
         elif hasattr(message, 'caption') and message.caption:
             text = message.caption
-            
+
         title = text.split('\n')[0][:20].strip() + "..." if text and len(text.split('\n')[0]) >= 20 else text.split('\n')[0].strip() if text else ""
-        
-        # 如果标题为空，使用默认标题
+
+        # If the title is empty, use a default title
         if not title:
-            # 检测各种媒体类型
+            # Detect various media types
             has_photo = hasattr(message, 'photo') and message.photo
             has_video = hasattr(message, 'video') and message.video
             has_document = hasattr(message, 'document') and message.document
             has_audio = hasattr(message, 'audio') and message.audio
             has_voice = hasattr(message, 'voice') and message.voice
-            
+
             if has_photo:
-                title = "图片消息"
+                title = "Photo message"
             elif has_video:
-                title = "视频消息"
+                title = "Video message"
             elif has_document:
                 doc_name = ""
                 if hasattr(message.document, 'file_name') and message.document.file_name:
                     doc_name = message.document.file_name
-                title = f"文件: {doc_name}" if doc_name else "文件消息"
+                title = f"File: {doc_name}" if doc_name else "File message"
             elif has_audio:
                 audio_name = ""
                 if hasattr(message.audio, 'file_name') and message.audio.file_name:
                     audio_name = message.audio.file_name
-                title = f"音频: {audio_name}" if audio_name else "音频消息"
+                title = f"Audio: {audio_name}" if audio_name else "Audio message"
             elif has_voice:
-                title = "语音消息"
+                title = "Voice message"
             else:
-                title = "新消息"
-        
+                title = "New message"
+
         return title
-    
+
     async def _get_sender_name(self, client, message):
-        """获取发送者名称"""
+        """Get sender name"""
         try:
-            # 检查是否是频道消息
+            # Check if it's a channel message
             if hasattr(message, 'sender_chat') and message.sender_chat:
                 return message.sender_chat.title
-            # 检查是否有发送者信息
+            # Check if there is sender information
             elif hasattr(message, 'from_user') and message.from_user:
                 return message.from_user.first_name + (f" {message.from_user.last_name}" if message.from_user.last_name else "")
-            # 尝试从聊天获取名称
+            # Try to get name from chat
             elif hasattr(message, 'chat') and message.chat:
                 if hasattr(message.chat, 'title') and message.chat.title:
                     return message.chat.title
                 elif hasattr(message.chat, 'first_name'):
                     return message.chat.first_name + (f" {message.chat.last_name}" if hasattr(message.chat, 'last_name') and message.chat.last_name else "")
-            return "未知用户"
+            return "Unknown user"
         except Exception as e:
-            logger.error(f"获取发送者名称时出错: {str(e)}")
-            return "未知用户"
-    
+            logger.error(f"Error getting sender name: {str(e)}")
+            return "Unknown user"
+
     def _get_message_link(self, message):
-        """获取消息链接"""
+        """Get message link"""
         try:
             if hasattr(message, 'chat') and message.chat:
                 chat_id = getattr(message.chat, 'id', None)
                 username = getattr(message.chat, 'username', None)
                 message_id = getattr(message, 'id', None)
-                
+
                 if message_id is None:
                     return ""
-                    
+
                 if username:
                     return f"https://t.me/{username}/{message_id}"
                 elif chat_id:
-                    # 使用chat_id创建链接
+                    # Create link using chat_id
                     chat_id_str = str(chat_id)
-                    # 移除前导负号（如果有）
+                    # Remove leading negative sign (if present)
                     if chat_id_str.startswith('-100'):
-                        chat_id_str = chat_id_str[4:]  # 去掉'-100'
+                        chat_id_str = chat_id_str[4:]  # Remove '-100'
                     elif chat_id_str.startswith('-'):
-                        chat_id_str = chat_id_str[1:]  # 去掉'-'
+                        chat_id_str = chat_id_str[1:]  # Remove '-'
                     return f"https://t.me/c/{chat_id_str}/{message_id}"
             return ""
         except Exception as e:
-            logger.error(f"获取消息链接时出错: {str(e)}")
+            logger.error(f"Error getting message link: {str(e)}")
             return ""
-    
+
     async def _process_media(self, client, message, context=None, rule_id=None):
-        """处理媒体内容"""
+        """Process media content"""
         media_list = []
-        
+
         try:
-            # 检查消息是否在skipped_media列表中
+            # Check if the message is in the skipped_media list
             if context and hasattr(context, 'skipped_media') and context.skipped_media:
                 for skipped_msg, size, name in context.skipped_media:
                     if skipped_msg.id == message.id:
-                        logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                        logger.info(f"Media file {name or ''} (size: {size}MB) is in the skipped_media list, RSS filter skipping download")
                         return media_list
 
-            # 处理文档类型
+            # Process document type
             if hasattr(message, 'document') and message.document:
-                # 获取原始文件名
+                # Get original filename
                 original_name = None
                 for attr in message.document.attributes:
                     if hasattr(attr, 'file_name'):
                         original_name = attr.file_name
                         break
-                
-                # 生成文件名
+
+                # Generate filename
                 message_id = getattr(message, 'id', 'unknown')
                 file_name = original_name if original_name else f"document_{message_id}"
                 file_name = self._sanitize_filename(file_name)
-                
-                # 获取规则ID，优先使用传入的rule_id
+
+                # Get rule ID, prefer the passed-in rule_id
                 current_rule_id = rule_id
                 if current_rule_id is None and context and hasattr(context, 'rule') and hasattr(context.rule, 'id'):
                     current_rule_id = context.rule.id
-                
-                # 使用规则特定的媒体目录
+
+                # Use rule-specific media directory
                 rule_media_path = self._get_rule_media_path(current_rule_id) if current_rule_id else self.rss_media_path
-                
-                # 下载文件
+
+                # Download file
                 local_path = os.path.join(rule_media_path, file_name)
                 try:
                     if not os.path.exists(local_path):
                         await message.download_media(local_path)
-                        logger.info(f"下载媒体文件到: {local_path}")
-                    
-                    # 获取文件大小和MIME类型
+                        logger.info(f"Downloaded media file to: {local_path}")
+
+                    # Get file size and MIME type
                     file_size = os.path.getsize(local_path)
                     mime_type = message.document.mime_type or mimetypes.guess_type(file_name)[0] or "application/octet-stream"
-                    
-                    # 添加到媒体列表，使用规则特定的URL
+
+                    # Add to media list, using rule-specific URL
                     media_info = {
                         "url": f"/media/{current_rule_id}/{file_name}" if current_rule_id else f"/media/{file_name}",
                         "type": mime_type,
@@ -345,77 +345,77 @@ class RSSFilter(BaseFilter):
                         "original_name": original_name or file_name
                     }
                     media_list.append(media_info)
-                    logger.info(f"添加文档到RSS: {file_name}, 原始文件名: {original_name or '未知'}")
+                    logger.info(f"Added document to RSS: {file_name}, original filename: {original_name or 'unknown'}")
                 except Exception as e:
-                    logger.error(f"处理文档时出错: {str(e)}")
-            
-            # 处理图片类型
+                    logger.error(f"Error processing document: {str(e)}")
+
+            # Process photo type
             elif hasattr(message, 'photo') and message.photo:
                 message_id = getattr(message, 'id', 'unknown')
-                
-                # 获取规则ID，优先使用传入的rule_id
+
+                # Get rule ID, prefer the passed-in rule_id
                 current_rule_id = rule_id
                 if current_rule_id is None and context and hasattr(context, 'rule') and hasattr(context.rule, 'id'):
                     current_rule_id = context.rule.id
-                
-                # 使用规则特定的媒体目录
+
+                # Use rule-specific media directory
                 rule_media_path = self._get_rule_media_path(current_rule_id) if current_rule_id else self.rss_media_path
                 local_path = os.path.join(rule_media_path, f"photo_{message_id}.jpg")
-                
+
                 try:
                     if not os.path.exists(local_path):
                         await message.download_media(local_path)
-                        logger.info(f"下载图片到: {local_path}")
-                    
-                    # 获取文件大小
+                        logger.info(f"Downloaded photo to: {local_path}")
+
+                    # Get file size
                     file_size = os.path.getsize(local_path)
-                    
-                    # 添加到媒体列表，使用规则特定的URL
+
+                    # Add to media list, using rule-specific URL
                     media_info = {
                         "url": f"/media/{current_rule_id}/{f'photo_{message_id}.jpg'}" if current_rule_id else f"/media/{f'photo_{message_id}.jpg'}",
                         "type": "image/jpeg",
                         "size": file_size,
                         "filename": f"photo_{message_id}.jpg",
-                        "original_name": "photo.jpg"  # 照片没有原始文件名
+                        "original_name": "photo.jpg"  # Photos don't have original filenames
                     }
                     media_list.append(media_info)
-                    logger.info(f"添加图片到RSS: {f'photo_{message_id}.jpg'}")
+                    logger.info(f"Added photo to RSS: {f'photo_{message_id}.jpg'}")
                 except Exception as e:
-                    logger.error(f"处理图片时出错: {str(e)}")
-            
-            # 处理视频类型
+                    logger.error(f"Error processing photo: {str(e)}")
+
+            # Process video type
             elif hasattr(message, 'video') and message.video:
                 message_id = getattr(message, 'id', 'unknown')
-                
-                # 获取原始文件名
+
+                # Get original filename
                 original_name = None
                 for attr in message.video.attributes:
                     if hasattr(attr, 'file_name'):
                         original_name = attr.file_name
                         break
-                
+
                 file_name = original_name if original_name else f"video_{message_id}.mp4"
                 file_name = self._sanitize_filename(file_name)
-                
-                # 获取规则ID，优先使用传入的rule_id
+
+                # Get rule ID, prefer the passed-in rule_id
                 current_rule_id = rule_id
                 if current_rule_id is None and context and hasattr(context, 'rule') and hasattr(context.rule, 'id'):
                     current_rule_id = context.rule.id
-                
-                # 使用规则特定的媒体目录
+
+                # Use rule-specific media directory
                 rule_media_path = self._get_rule_media_path(current_rule_id) if current_rule_id else self.rss_media_path
                 local_path = os.path.join(rule_media_path, file_name)
-                
+
                 try:
                     if not os.path.exists(local_path):
                         await message.download_media(local_path)
-                        logger.info(f"下载视频到: {local_path}")
-                    
-                    # 获取文件大小和MIME类型
+                        logger.info(f"Downloaded video to: {local_path}")
+
+                    # Get file size and MIME type
                     file_size = os.path.getsize(local_path)
                     mime_type = message.video.mime_type or "video/mp4"
-                    
-                    # 添加到媒体列表，使用规则特定的URL
+
+                    # Add to media list, using rule-specific URL
                     media_info = {
                         "url": f"/media/{current_rule_id}/{file_name}" if current_rule_id else f"/media/{file_name}",
                         "type": mime_type,
@@ -424,43 +424,43 @@ class RSSFilter(BaseFilter):
                         "original_name": original_name or file_name
                     }
                     media_list.append(media_info)
-                    logger.info(f"添加视频到RSS: {file_name}")
+                    logger.info(f"Added video to RSS: {file_name}")
                 except Exception as e:
-                    logger.error(f"处理视频时出错: {str(e)}")
-            
-            # 处理音频类型
+                    logger.error(f"Error processing video: {str(e)}")
+
+            # Process audio type
             elif hasattr(message, 'audio') and message.audio:
                 message_id = getattr(message, 'id', 'unknown')
-                
-                # 获取原始文件名
+
+                # Get original filename
                 original_name = None
                 for attr in message.audio.attributes:
                     if hasattr(attr, 'file_name'):
                         original_name = attr.file_name
                         break
-                
+
                 file_name = original_name if original_name else f"audio_{message_id}.mp3"
                 file_name = self._sanitize_filename(file_name)
-                
-                # 获取规则ID，优先使用传入的rule_id
+
+                # Get rule ID, prefer the passed-in rule_id
                 current_rule_id = rule_id
                 if current_rule_id is None and context and hasattr(context, 'rule') and hasattr(context.rule, 'id'):
                     current_rule_id = context.rule.id
-                
-                # 使用规则特定的媒体目录
+
+                # Use rule-specific media directory
                 rule_media_path = self._get_rule_media_path(current_rule_id) if current_rule_id else self.rss_media_path
                 local_path = os.path.join(rule_media_path, file_name)
-                
+
                 try:
                     if not os.path.exists(local_path):
                         await message.download_media(local_path)
-                        logger.info(f"下载音频到: {local_path}")
-                    
-                    # 获取文件大小和MIME类型
+                        logger.info(f"Downloaded audio to: {local_path}")
+
+                    # Get file size and MIME type
                     file_size = os.path.getsize(local_path)
                     mime_type = message.audio.mime_type or "audio/mpeg"
-                    
-                    # 添加到媒体列表，使用规则特定的URL
+
+                    # Add to media list, using rule-specific URL
                     media_info = {
                         "url": f"/media/{current_rule_id}/{file_name}" if current_rule_id else f"/media/{file_name}",
                         "type": mime_type,
@@ -469,138 +469,138 @@ class RSSFilter(BaseFilter):
                         "original_name": original_name or file_name
                     }
                     media_list.append(media_info)
-                    logger.info(f"添加音频到RSS: {file_name}")
+                    logger.info(f"Added audio to RSS: {file_name}")
                 except Exception as e:
-                    logger.error(f"处理音频时出错: {str(e)}")
-            
-            # 处理语音消息
+                    logger.error(f"Error processing audio: {str(e)}")
+
+            # Process voice message
             elif hasattr(message, 'voice') and message.voice:
                 message_id = getattr(message, 'id', 'unknown')
                 file_name = f"voice_{message_id}.ogg"
-                
-                # 获取规则ID，优先使用传入的rule_id
+
+                # Get rule ID, prefer the passed-in rule_id
                 current_rule_id = rule_id
                 if current_rule_id is None and context and hasattr(context, 'rule') and hasattr(context.rule, 'id'):
                     current_rule_id = context.rule.id
-                
-                # 使用规则特定的媒体目录
+
+                # Use rule-specific media directory
                 rule_media_path = self._get_rule_media_path(current_rule_id) if current_rule_id else self.rss_media_path
                 local_path = os.path.join(rule_media_path, file_name)
-                
+
                 try:
                     if not os.path.exists(local_path):
                         await message.download_media(local_path)
-                        logger.info(f"下载语音到: {local_path}")
-                    
-                    # 获取文件大小
+                        logger.info(f"Downloaded voice to: {local_path}")
+
+                    # Get file size
                     file_size = os.path.getsize(local_path)
-                    
-                    # 添加到媒体列表，使用规则特定的URL
+
+                    # Add to media list, using rule-specific URL
                     media_info = {
                         "url": f"/media/{current_rule_id}/{file_name}" if current_rule_id else f"/media/{file_name}",
                         "type": "audio/ogg",
                         "size": file_size,
                         "filename": file_name,
-                        "original_name": "voice.ogg"  # 语音消息没有原始文件名
+                        "original_name": "voice.ogg"  # Voice messages don't have original filenames
                     }
                     media_list.append(media_info)
-                    logger.info(f"添加语音到RSS: {file_name}")
+                    logger.info(f"Added voice to RSS: {file_name}")
                 except Exception as e:
-                    logger.error(f"处理语音时出错: {str(e)}")
-        
+                    logger.error(f"Error processing voice: {str(e)}")
+
         except Exception as e:
-            logger.error(f"处理媒体内容时出错: {str(e)}")
-        
+            logger.error(f"Error processing media content: {str(e)}")
+
         return media_list
-    
+
     def _sanitize_filename(self, filename):
-        """处理文件名，去除不合法字符"""
-        # 替换Windows和Unix系统不支持的文件名字符
+        """Process filename, remove invalid characters"""
+        # Replace filename characters not supported by Windows and Unix systems
         invalid_chars = '<>:"/\\|?*'
         for char in invalid_chars:
             filename = filename.replace(char, '_')
         return filename
-    
+
     async def _send_to_rss_service(self, rule_id, entry_data):
-        """发送数据到RSS服务"""
+        """Send data to RSS service"""
         try:
             url = f"{self.rss_base_url}/api/entries/{rule_id}/add"
-            
-            # 记录要发送的数据（只记录非二进制数据）
+
+            # Log the data to be sent (only log non-binary data)
             debug_data = entry_data.copy()
             if "media" in debug_data:
                 media_files = []
                 for media in debug_data["media"]:
                     if isinstance(media, dict):
-                        original_name = media.get("original_name", "未知")
-                        filename = media.get("filename", "未知")
+                        original_name = media.get("original_name", "unknown")
+                        filename = media.get("filename", "unknown")
                         media_files.append(f"{original_name}({filename})")
                     else:
                         media_files.append(str(media))
-                debug_data["media"] = f"{len(debug_data['media'])} 个媒体文件: {', '.join(media_files)}"
-            logger.info(f"发送到RSS服务: {url}, 数据: {debug_data}")
-            
+                debug_data["media"] = f"{len(debug_data['media'])} media files: {', '.join(media_files)}"
+            logger.info(f"Sending to RSS service: {url}, data: {debug_data}")
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, json=entry_data) as response:
                     response_text = await response.text()
                     if response.status != 200:
-                        logger.error(f"发送到RSS服务失败: {response.status} - {response_text}")
+                        logger.error(f"Failed to send to RSS service: {response.status} - {response_text}")
                         return False
-                    
-                    logger.info(f"成功发送到RSS服务, 规则ID: {rule_id}, 响应: {response_text}")
+
+                    logger.info(f"Successfully sent to RSS service, rule ID: {rule_id}, response: {response_text}")
                     return True
-                    
+
         except Exception as e:
-            logger.error(f"发送到RSS服务时出错: {str(e)}")
+            logger.error(f"Error sending to RSS service: {str(e)}")
             return False
-    
+
     async def _process_media_group(self, context, rule):
-        """处理媒体组消息"""
+        """Process media group messages"""
         try:
-            # 获取规则ID
+            # Get rule ID
             rule_id = rule.id
-            
-            # 获取规则特定的媒体目录
+
+            # Get rule-specific media directory
             rule_media_path = self._get_rule_media_path(rule_id)
-            
-            # 获取已下载的本地媒体文件
+
+            # Get already downloaded local media files
             local_media_files = []
             if hasattr(context, 'media_files') and context.media_files:
                 local_media_files = context.media_files
-            
-            # 记录已下载的媒体文件数量
-            logger.info(f"处理媒体组消息，已下载的媒体文件: {len(local_media_files)}")
-            
-            # 准备媒体列表
+
+            # Log the number of downloaded media files
+            logger.info(f"Processing media group messages, downloaded media files: {len(local_media_files)}")
+
+            # Prepare media list
             media_list = []
-            
-            # 如果有已下载的媒体文件，使用它们
+
+            # If there are already downloaded media files, use them
             if local_media_files:
-                # 使用已下载的媒体文件
+                # Use already downloaded media files
                 for local_file in local_media_files:
                     try:
-                        # 从文件名猜测媒体类型
+                        # Guess media type from filename
                         media_type = mimetypes.guess_type(local_file)[0] or "application/octet-stream"
                         filename = os.path.basename(local_file)
-                        
-                        # 复制文件到规则特定的RSS媒体目录
+
+                        # Copy file to rule-specific RSS media directory
                         target_path = os.path.join(rule_media_path, filename)
                         if not os.path.exists(target_path):
                             shutil.copy2(local_file, target_path)
-                            logger.info(f"复制媒体文件到: {target_path}")
-                        
-                        # 获取文件大小
+                            logger.info(f"Copied media file to: {target_path}")
+
+                        # Get file size
                         file_size = os.path.getsize(target_path)
-                        
-                        # 尝试从原始消息中获取文件名
+
+                        # Try to get filename from original message
                         original_name = None
                         for msg in context.media_group_messages:
                             if hasattr(msg, 'document') and msg.document:
                                 original_name = getattr(msg.document, 'file_name', None)
                                 if original_name:
                                     break
-                        
-                        # 添加到媒体列表，使用规则特定的URL
+
+                        # Add to media list, using rule-specific URL
                         media_info = {
                             "url": f"/media/{rule_id}/{filename}",
                             "type": media_type,
@@ -609,131 +609,131 @@ class RSSFilter(BaseFilter):
                             "original_name": original_name or filename
                         }
                         media_list.append(media_info)
-                        logger.info(f"添加媒体组文件到RSS: {filename}, 原始文件名: {original_name or '未知'}")
+                        logger.info(f"Added media group file to RSS: {filename}, original filename: {original_name or 'unknown'}")
                     except Exception as e:
-                        logger.error(f"处理媒体组文件时出错: {str(e)}")
+                        logger.error(f"Error processing media group file: {str(e)}")
             else:
-                # 没有已下载的媒体文件，尝试直接从媒体组消息下载
+                # No already downloaded media files, try to download directly from media group messages
                 if hasattr(context, 'media_group_messages') and context.media_group_messages:
-                    logger.warning("媒体组没有已下载的文件，尝试从media_group_messages获取")
-                    
-                    # 直接处理媒体组消息
+                    logger.warning("Media group has no downloaded files, trying to get from media_group_messages")
+
+                    # Process media group messages directly
                     for msg in context.media_group_messages:
                         try:
-                            # 检查消息是否在skipped_media列表中
+                            # Check if the message is in the skipped_media list
                             if hasattr(context, 'skipped_media') and context.skipped_media:
                                 skip_msg = False
                                 for skipped_msg, size, name in context.skipped_media:
                                     if skipped_msg.id == msg.id:
-                                        logger.info(f"媒体组中的媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                                        logger.info(f"Media file {name or ''} (size: {size}MB) in media group is in the skipped_media list, RSS filter skipping download")
                                         skip_msg = True
                                         break
                                 if skip_msg:
                                     continue
 
-                            # 处理图片类型
+                            # Process photo type
                             if hasattr(msg, 'photo') and msg.photo:
                                 message_id = getattr(msg, 'id', 'unknown')
                                 file_name = f"photo_{message_id}.jpg"
-                                
+
                                 try:
-                                    # 使用规则特定的媒体目录
+                                    # Use rule-specific media directory
                                     local_path = os.path.join(rule_media_path, file_name)
-                                    
-                                    # 如果文件已存在且大小正常，跳过下载
+
+                                    # If the file already exists and has valid size, skip download
                                     if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
-                                        logger.info(f"媒体文件已存在，跳过下载: {local_path}")
+                                        logger.info(f"Media file already exists, skipping download: {local_path}")
                                     else:
                                         try:
                                             await msg.download_media(local_path)
-                                            logger.info(f"直接下载图片到: {local_path}")
+                                            logger.info(f"Directly downloaded photo to: {local_path}")
                                         except Exception as e:
                                             if "file reference has expired" in str(e):
-                                                logger.warning(f"文件引用已过期，尝试重新获取消息")
+                                                logger.warning(f"File reference has expired, trying to re-fetch message")
                                                 try:
-                                                    # 尝试重新获取消息
+                                                    # Try to re-fetch the message
                                                     refreshed_msg = await context.client.get_messages(
                                                         msg.chat_id, ids=msg.id
                                                     )
                                                     if refreshed_msg:
                                                         await refreshed_msg.download_media(local_path)
-                                                        logger.info(f"成功重新下载图片到: {local_path}")
+                                                        logger.info(f"Successfully re-downloaded photo to: {local_path}")
                                                     else:
-                                                        logger.error("无法重新获取消息")
+                                                        logger.error("Unable to re-fetch message")
                                                         continue
                                                 except Exception as refresh_error:
-                                                    logger.error(f"重新获取消息时出错: {str(refresh_error)}")
+                                                    logger.error(f"Error re-fetching message: {str(refresh_error)}")
                                                     continue
                                             else:
-                                                logger.error(f"下载媒体组图片时出错: {str(e)}")
+                                                logger.error(f"Error downloading media group photo: {str(e)}")
                                                 continue
-                                    
-                                    # 获取文件大小
+
+                                    # Get file size
                                     if os.path.exists(local_path):
                                         file_size = os.path.getsize(local_path)
-                                        
-                                        # 添加到媒体列表，使用规则特定的URL
+
+                                        # Add to media list, using rule-specific URL
                                         media_info = {
                                             "url": f"/media/{rule_id}/{file_name}",
                                             "type": "image/jpeg",
                                             "size": file_size,
                                             "filename": file_name,
-                                            "original_name": "photo.jpg"  # 照片没有原始文件名
+                                            "original_name": "photo.jpg"  # Photos don't have original filenames
                                         }
                                         media_list.append(media_info)
-                                        logger.info(f"添加媒体组图片到RSS: {file_name}")
+                                        logger.info(f"Added media group photo to RSS: {file_name}")
                                 except Exception as e:
-                                    logger.error(f"处理媒体组图片时出错: {str(e)}")
+                                    logger.error(f"Error processing media group photo: {str(e)}")
                             elif hasattr(msg, 'document') and msg.document:
-                                # 获取消息ID，用于生成默认文件名
+                                # Get message ID for generating default filename
                                 message_id = getattr(msg, 'id', 'unknown')
                                 original_name = None
                                 for attr in msg.document.attributes:
                                     if hasattr(attr, 'file_name'):
                                         original_name = attr.file_name
                                         break
-                                
+
                                 file_name = original_name if original_name else f"document_{message_id}"
                                 file_name = self._sanitize_filename(file_name)
-                                
+
                                 try:
-                                    # 使用规则特定的媒体目录
+                                    # Use rule-specific media directory
                                     local_path = os.path.join(rule_media_path, file_name)
-                                    
-                                    # 如果文件已存在且大小正常，跳过下载
+
+                                    # If the file already exists and has valid size, skip download
                                     if os.path.exists(local_path) and os.path.getsize(local_path) > 0:
-                                        logger.info(f"媒体文件已存在，跳过下载: {local_path}")
+                                        logger.info(f"Media file already exists, skipping download: {local_path}")
                                     else:
                                         try:
                                             await msg.download_media(local_path)
-                                            logger.info(f"直接下载文档到: {local_path}")
+                                            logger.info(f"Directly downloaded document to: {local_path}")
                                         except Exception as e:
                                             if "file reference has expired" in str(e):
-                                                logger.warning(f"文件引用已过期，尝试重新获取消息")
+                                                logger.warning(f"File reference has expired, trying to re-fetch message")
                                                 try:
-                                                    # 尝试重新获取消息
+                                                    # Try to re-fetch the message
                                                     refreshed_msg = await context.client.get_messages(
                                                         msg.chat_id, ids=msg.id
                                                     )
                                                     if refreshed_msg:
                                                         await refreshed_msg.download_media(local_path)
-                                                        logger.info(f"成功重新下载文档到: {local_path}")
+                                                        logger.info(f"Successfully re-downloaded document to: {local_path}")
                                                     else:
-                                                        logger.error("无法重新获取消息")
+                                                        logger.error("Unable to re-fetch message")
                                                         continue
                                                 except Exception as refresh_error:
-                                                    logger.error(f"重新获取消息时出错: {str(refresh_error)}")
+                                                    logger.error(f"Error re-fetching message: {str(refresh_error)}")
                                                     continue
                                             else:
-                                                logger.error(f"下载媒体组文档时出错: {str(e)}")
+                                                logger.error(f"Error downloading media group document: {str(e)}")
                                                 continue
-                                    
-                                    # 获取文件大小和MIME类型
+
+                                    # Get file size and MIME type
                                     if os.path.exists(local_path):
                                         file_size = os.path.getsize(local_path)
                                         mime_type = msg.document.mime_type or mimetypes.guess_type(file_name)[0] or "application/octet-stream"
-                                        
-                                        # 添加到媒体列表，使用规则特定的URL
+
+                                        # Add to media list, using rule-specific URL
                                         media_info = {
                                             "url": f"/media/{rule_id}/{file_name}",
                                             "type": mime_type,
@@ -742,32 +742,32 @@ class RSSFilter(BaseFilter):
                                             "original_name": original_name or file_name
                                         }
                                         media_list.append(media_info)
-                                        logger.info(f"添加媒体组文档到RSS: {file_name}, 原始文件名: {original_name or '未知'}")
+                                        logger.info(f"Added media group document to RSS: {file_name}, original filename: {original_name or 'unknown'}")
                                 except Exception as e:
-                                    logger.error(f"处理媒体组文档时出错: {str(e)}")
-                            
-                            # 其他媒体类型处理可以类似添加
-                        
+                                    logger.error(f"Error processing media group document: {str(e)}")
+
+                            # Other media types can be handled similarly
+
                         except Exception as e:
-                            logger.error(f"处理媒体组消息时出错: {str(e)}")
-            
-            # 准备条目数据
-            # 获取消息文本内容
+                            logger.error(f"Error processing media group message: {str(e)}")
+
+            # Prepare entry data
+            # Get message text content
             message_text = context.message_text or ""
-            
-            # 构建标题：优先使用消息文本内容，没有文本内容时使用默认标题
+
+            # Build title: prefer message text content, use default title when there's no text content
             if message_text.strip():
-                # 使用第一行文本或前30个字符（以较短者为准）作为标题
+                # Use the first line of text or the first 30 characters (whichever is shorter) as the title
                 first_line = message_text.split('\n')[0].strip()
                 title = first_line[:30] + ('...' if len(first_line) > 30 else '')
             else:
-                # 没有文本内容时，使用默认标题
+                # When there's no text content, use default title
                 if media_list:
-                    title = f"媒体组消息 ({len(media_list)}个文件)"
+                    title = f"Media group message ({len(media_list)} files)"
                 else:
-                    title = "媒体组消息"
-            
-            # 构建条目数据
+                    title = "Media group message"
+
+            # Build entry data
             entry_data = {
                 "id": str(context.event.message.id),
                 "title": title,
@@ -777,19 +777,19 @@ class RSSFilter(BaseFilter):
                 "link": self._get_message_link(context.event.message),
                 "media": media_list
             }
-            
-            # 记录媒体组条目数据
-            logger.info(f"媒体组条目数据: 标题={title}, 媒体数量={len(media_list)}")
-            
-            # 如果有有效的媒体文件，添加到RSS订阅源
+
+            # Log media group entry data
+            logger.info(f"Media group entry data: title={title}, media count={len(media_list)}")
+
+            # If there are valid media files, add to RSS feed
             if media_list:
                 await self._send_to_rss_service(rule.id, entry_data)
-                logger.info(f"成功将媒体组消息添加到规则 {rule.id} 的RSS订阅源")
+                logger.info(f"Successfully added media group message to RSS feed for rule {rule.id}")
             else:
-                logger.warning("媒体组消息没有有效的媒体文件，跳过添加到RSS订阅源")
-        
+                logger.warning("Media group message has no valid media files, skipping addition to RSS feed")
+
         except Exception as e:
-            logger.error(f"处理媒体组消息时出错: {str(e)}")
+            logger.error(f"Error processing media group message: {str(e)}")
             return False
-        
+
         return True
