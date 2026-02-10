@@ -27,7 +27,7 @@ ufb/config/config.json
 db/forward.db1
 handlers/bot_handler copy.py
 /temp
-使用场景示例.md
+usage_scenario_examples.md
 /rss/media
 /rss/data
 
