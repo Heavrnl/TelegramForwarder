@@ -15,32 +15,32 @@ class OpenAIProvider(OpenAIBaseProvider):
             default_api_base='https://api.openai.com/v1'
         )
 
-    async def process_message(self, 
-                            message: str, 
+    async def process_message(self,
+                            message: str,
                             prompt: Optional[str] = None,
                             images: Optional[List[Dict[str, str]]] = None,
                             **kwargs) -> str:
-        """处理消息"""
+        """Process message"""
         try:
             if not self.client:
                 await self.initialize(**kwargs)
-                
+
             messages = []
             if prompt:
                 messages.append({"role": "system", "content": prompt})
-            
-            # 如果有图片，需要添加到消息中
+
+            # If there are images, add them to the message
             if images and len(images) > 0:
-                # 创建包含文本和图片的内容数组
+                # Create content array containing text and images
                 content = []
-                
-                # 添加文本
+
+                # Add text
                 content.append({
                     "type": "text",
                     "text": message
                 })
-                
-                # 添加每张图片
+
+                # Add each image
                 for img in images:
                     content.append({
                         "type": "image_url",
@@ -48,19 +48,19 @@ class OpenAIProvider(OpenAIBaseProvider):
                             "url": f"data:{img['mime_type']};base64,{img['data']}"
                         }
                     })
-                
+
                 messages.append({"role": "user", "content": content})
             else:
-                # 没有图片，只添加文本
+                # No images, only add text
                 messages.append({"role": "user", "content": message})
-            
+
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages
             )
-            
+
             return response.choices[0].message.content
-            
+
         except Exception as e:
-            logger.error(f"OpenAI处理消息时出错: {str(e)}", exc_info=True)
-            return f"AI处理失败: {str(e)}"
+            logger.error(f"Error processing message in OpenAI: {str(e)}", exc_info=True)
+            return f"AI processing failed: {str(e)}"
