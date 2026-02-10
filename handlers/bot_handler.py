@@ -11,20 +11,20 @@ from version import WELCOME_TEXT
 
 logger = logging.getLogger(__name__)
 
-# 确保 temp 目录存在
+# Ensure temp directory exists
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 load_dotenv()
 
 
 async def handle_command(client, event):
-    """处理机器人命令"""
+    """Handle bot commands"""
 
-    # 检查是否是管理员
+    # Check if user is admin
     if not await is_admin(event):
         return
     
-    # 处理命令逻辑
+    # Process command logic
     message = event.message
     if not message.text:
         return
@@ -35,22 +35,22 @@ async def handle_command(client, event):
     user_id = int(user_id)
     
 
-    # 链接转发功能
+    # Link forwarding feature
     if not message.text.startswith('/') and chat_id == user_id:
-        # 检查是否是 Telegram 消息链接且是用户自己的消息
-        logger.info(f'进入链接转发功能：{message.text}')
+        # Check if it is a Telegram message link and is the user's own message
+        logger.info(f'Entering link forwarding feature: {message.text}')
         if 't.me/' in message.text:
             await handle_message_link(client, event)
         return
     if not message.text.startswith('/'):
         return
     
-    logger.info(f'收到管理员命令: {event.message.text}')
-    # 分割命令，处理可能带有机器人用户名的情况
+    logger.info(f'Received admin command: {event.message.text}')
+    # Split command, handle possible bot username suffix
     parts = message.text.split()
-    command = parts[0].split('@')[0][1:]  # 移除开头的 '/' 并处理可能的 @username
+    command = parts[0].split('@')[0][1:]  # Remove leading '/' and handle possible @username
 
-    # 命令处理器字典
+    # Command handler dictionary
     command_handlers = {
         'bind': lambda: handle_bind_command(event, client, parts),
         'b': lambda: handle_bind_command(event, client, parts),
@@ -127,36 +127,36 @@ async def handle_command(client, event):
         'dru': lambda: handle_delete_rss_user_command(event, command, parts),
     }
 
-    # 执行对应的命令处理器
+    # Execute the corresponding command handler
     handler = command_handlers.get(command)
     if handler:
         await handler()
 
 
 
-# 注册回调处理器
+# Register callback handler
 @events.register(events.CallbackQuery)
 async def callback_handler(event):
-    """回调处理器入口"""
-    # 检查是否是管理员的回调
+    """Callback handler entry point"""
+    # Check if callback is from admin
     if not await is_admin(event):
         return
     await handle_callback(event)
 
 
 async def send_welcome_message(client):
-    """发送欢迎消息"""
+    """Send welcome message"""
     main = await get_main_module()
     user_id = await get_user_id()
 
-    # 发送新消息
+    # Send new message
     await client.send_message(
         user_id,
         WELCOME_TEXT,
         parse_mode='html',
         link_preview=True
     )
-    logger.info("已发送欢迎消息")
+    logger.info("Welcome message sent")
 
 
 
