@@ -1,6 +1,6 @@
 ![img](images/logo/png/logo-title.png)
 
-<h3><div align="center">Telegram 转发器 | Telegram Forwarder</div>
+<h3><div align="center">Telegram Forwarder</div>
 
 ---
 
@@ -12,109 +12,109 @@
 
 </div>
 
-## 📖 简介
-Telegram 转发器是一个强大的消息转发工具，只需要你的账号加入频道/群聊即可以将指定聊天中的消息转发到其他聊天，不需要bot进入对应的频道/群组即可监听。可用于信息流整合过滤，消息提醒，内容收藏等多种场景, 不受转发/复制禁止的限制。此外，利用 Apprise 强大的推送功能，你可以轻松将消息分发至聊天软件、邮件、短信、Webhooks、APIs 等各种平台。
+## 📖 Introduction
+Telegram Forwarder is a powerful message forwarding tool. As long as your account has joined a channel/group, it can forward messages from specified chats to other chats without requiring the bot to be in the corresponding channel/group for monitoring. It can be used for information stream aggregation and filtering, message notifications, content bookmarking, and many other scenarios, without being restricted by forwarding/copying limitations. Additionally, leveraging the powerful push capabilities of Apprise, you can easily distribute messages to chat apps, email, SMS, Webhooks, APIs, and various other platforms.
 
-## ✨ 特性
+## ✨ Features
 
-- 🔄 **多源转发**：支持从多个来源转发到指定目标
-- 🔍 **关键词过滤**：支持白名单和黑名单模式
-- 📝 **正则匹配**：支持正则表达式匹配目标文本
-- 📋 **内容修改**：支持多种方式修改消息内容
-- 🤖 **AI 处理**：支持使用各大厂商的AI接口
-- 📹 **媒体过滤**：支持过滤指定类型的媒体文件
-- 📰 **RSS订阅**：支持RSS订阅
-- 📢 **多平台推送**：支持通过Apprise推送到多个平台
+- 🔄 **Multi-source Forwarding**: Support forwarding from multiple sources to a specified target
+- 🔍 **Keyword Filtering**: Support whitelist and blacklist modes
+- 📝 **Regex Matching**: Support regular expression matching for target text
+- 📋 **Content Modification**: Support multiple ways to modify message content
+- 🤖 **AI Processing**: Support AI APIs from various major providers
+- 📹 **Media Filtering**: Support filtering specified types of media files
+- 📰 **RSS Subscription**: Support RSS subscription
+- 📢 **Multi-platform Push**: Support pushing to multiple platforms via Apprise
 
-## 📋 目录
+## 📋 Table of Contents
 
-- [📖 简介](#-简介)
-- [✨ 特性](#-特性)
-- [🚀 快速开始](#-快速开始)
-  - [1️⃣ 准备工作](#1️⃣-准备工作)
-  - [2️⃣ 配置环境](#2️⃣-配置环境)
-  - [3️⃣ 启动服务](#3️⃣-启动服务)
-  - [4️⃣ 更新](#4️⃣-更新)
-- [📚 使用指南](#-使用指南)
-  - [🌟 基础使用示例](#-基础使用示例)
-  - [🔧 特殊使用场景示例](#-特殊使用场景示例)
-- [🛠️ 功能详解](#️-功能详解)
-  - [⚡ 过滤流程](#-过滤流程)
-  - [⚙️ 设置说明](#️-设置说明)
-    - [主设置说明](#主设置说明)
-    - [媒体设置说明](#媒体设置说明)
-  - [🤖 AI功能](#-ai功能)
-    - [配置说明](#配置)
-    - [自定义模型](#自定义模型)
-    - [AI处理能力](#ai-处理)
-    - [定时总结功能](#定时总结)
-  - [📢 推送功能](#-推送功能)
-    - [设置说明](#设置说明)
-  - [📰 RSS订阅](#-RSS订阅)
-    - [启用RSS功能](#启用rss功能)
-    - [访问RSS仪表盘](#访问rss仪表盘) 
-    - [Nginx配置](#nginx配置)
-    - [RSS配置说明](#rss配置管理)
-    - [特殊设置项](#特殊设置项)
-    - [注意事项](#注意事项)
-  
-- [🎯 特殊功能](#-特殊功能)
-  - [🔗 链接转发功能](#-链接转发功能)
-- [📝 命令列表](#-命令列表)
-- [💐 致谢](#-致谢)
-- [☕ 捐赠](#-捐赠)
-- [📄 开源协议](#-开源协议)
+- [📖 Introduction](#-introduction)
+- [✨ Features](#-features)
+- [🚀 Quick Start](#-quick-start)
+  - [1️⃣ Prerequisites](#1️⃣-prerequisites)
+  - [2️⃣ Configure Environment](#2️⃣-configure-environment)
+  - [3️⃣ Start Service](#3️⃣-start-service)
+  - [4️⃣ Update](#4️⃣-update)
+- [📚 User Guide](#-user-guide)
+  - [🌟 Basic Usage Example](#-basic-usage-example)
+  - [🔧 Special Use Case Examples](#-special-use-case-examples)
+- [🛠️ Feature Details](#️-feature-details)
+  - [⚡ Filtering Process](#-filtering-process)
+  - [⚙️ Settings Description](#️-settings-description)
+    - [Main Settings Description](#main-settings-description)
+    - [Media Settings Description](#media-settings-description)
+  - [🤖 AI Features](#-ai-features)
+    - [Configuration](#configuration)
+    - [Custom Models](#custom-models)
+    - [AI Processing](#ai-processing)
+    - [Scheduled Summary](#scheduled-summary)
+  - [📢 Push Feature](#-push-feature)
+    - [Settings Description](#settings-description)
+  - [📰 RSS Subscription](#-rss-subscription)
+    - [Enable RSS Feature](#enable-rss-feature)
+    - [Access RSS Dashboard](#access-rss-dashboard)
+    - [Nginx Configuration](#nginx-configuration)
+    - [RSS Configuration Management](#rss-configuration-management)
+    - [Special Settings](#special-settings)
+    - [Notes](#notes)
+
+- [🎯 Special Features](#-special-features)
+  - [🔗 Link Forwarding Feature](#-link-forwarding-feature)
+- [📝 Command List](#-command-list)
+- [💐 Acknowledgments](#-acknowledgments)
+- [☕ Donate](#-donate)
+- [📄 License](#-license)
 
 
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1️⃣ 准备工作
+### 1️⃣ Prerequisites
 
-1. 获取 Telegram API 凭据：
-   - 访问 https://my.telegram.org/apps
-   - 创建一个应用获取 `API_ID` 和 `API_HASH`
+1. Obtain Telegram API credentials:
+   - Visit https://my.telegram.org/apps
+   - Create an application to get `API_ID` and `API_HASH`
 
-2. 获取机器人 Token：
-   - 与 @BotFather 对话创建机器人
-   - 获取机器人的 `BOT_TOKEN`
+2. Get bot Token:
+   - Chat with @BotFather to create a bot
+   - Obtain the bot's `BOT_TOKEN`
 
-3. 获取用户 ID：
-   - 与 @userinfobot 对话获取你的 `USER_ID`
+3. Get user ID:
+   - Chat with @userinfobot to get your `USER_ID`
 
-### 2️⃣ 配置环境
+### 2️⃣ Configure Environment
 
-新建文件夹
+Create a new directory
 ```bash
 mkdir ./TelegramForwarder && cd ./TelegramForwarder
 ```
-下载仓库的 [**docker-compose.yml**](https://github.com/Heavrnl/TelegramForwarder/blob/main/docker-compose.yml) 到目录下
+Download the repository's [**docker-compose.yml**](https://github.com/Heavrnl/TelegramForwarder/blob/main/docker-compose.yml) to the directory
 
-接着下载或复制仓库的 **[.env.example](./.env.example)** 文件，填入必填项，然后重命名为`.env`
+Then download or copy the repository's **[.env.example](./.env.example)** file, fill in the required fields, and rename it to `.env`
 ```bash
 wget https://raw.githubusercontent.com/Heavrnl/TelegramForwarder/refs/heads/main/.env.example -O .env
 ```
 
 
 
-### 3️⃣ 启动服务
+### 3️⃣ Start Service
 
-首次运行（需要验证）：
+First run (requires verification):
 
 ```bash
 docker-compose run -it telegram-forwarder
 ```
-CTRL+C 退出容器
+CTRL+C to exit the container
 
-修改 docker-compose.yml 文件，修改 `stdin_open: false` 和 `tty: false`
+Modify the docker-compose.yml file, set `stdin_open: false` and `tty: false`
 
-后台运行：
+Run in background:
 ```bash
 docker-compose up -d
 ```
 
-### 4️⃣ 更新
-注意：docker-compose运行不需要拉取仓库源码，除非你打算自己build，否则只需要在项目目录执行以下命令即可更新。
+### 4️⃣ Update
+Note: Running with docker-compose does not require pulling the repository source code. Unless you plan to build it yourself, you only need to execute the following commands in the project directory to update.
 ```bash
 docker-compose down
 ```
@@ -124,289 +124,289 @@ docker-compose pull
 ```bash
 docker-compose up -d
 ```
-## 📚 使用指南
+## 📚 User Guide
 
-### 🌟 基础使用示例
+### 🌟 Basic Usage Example
 
-假设订阅了频道 "TG 新闻" (https://t.me/tgnews) 和 "TG 阅读" (https://t.me/tgread) ，但想过滤掉一些不感兴趣的内容：
+Suppose you've subscribed to channels "TG News" (https://t.me/tgnews) and "TG Read" (https://t.me/tgread), but want to filter out some uninteresting content:
 
-1. 创建一个 Telegram 群组/频道（例如："My TG Filter"）
-2. 将机器人添加到群组/频道，并设置为管理员
-3. 在**新创建**的群组/频道中发送命令：
+1. Create a Telegram group/channel (e.g., "My TG Filter")
+2. Add the bot to the group/channel and set it as admin
+3. Send commands in the **newly created** group/channel:
    ```bash
-   /bind https://t.me/tgnews 或者 /bind "TG 新闻"
-   /bind https://t.me/tgread 或者 /bind "TG 阅读"
+   /bind https://t.me/tgnews or /bind "TG News"
+   /bind https://t.me/tgread or /bind "TG Read"
    ```
-4. 设置消息处理模式：
+4. Set message processing mode:
    ```bash
    /settings
    ```
-   选择要操作的对应频道的规则，根据喜好设置
-   
-   详细设置说明请查看 [🛠️ 功能详解](#️-功能详解)
+   Select the rule for the corresponding channel and configure according to your preferences
 
-5. 添加屏蔽关键词：
+   For detailed settings, see [🛠️ Feature Details](#️-feature-details)
+
+5. Add blocked keywords:
    ```bash
-   /add 广告 推广 '这是 广告'
+   /add ad promotion 'this is an ad'
    ```
 
-6. 如果发现转发的消息格式有问题（比如有多余的符号），可以使用正则表达式处理：
+6. If you find formatting issues with forwarded messages (e.g., extra symbols), you can use regex to handle them:
    ```bash
    /replace \*\*
    ```
-   这会删除消息中的所有 `**` 符号
+   This will remove all `**` symbols from messages
 
->注意：以上增删改查操作，只对第一个绑定的规则生效，示例里是TG 新闻。若想对TG 阅读进行操作，需要先使用`/settings(/s)`，选择TG 阅读，再点击"应用当前规则"，就可以对此进行增删改查操作了。也可以使用`/add_all(/aa)`，`/replace_all(/ra)`等指令同时对两条规则生效
+>Note: The above add/remove/modify/query operations only apply to the first bound rule, which is TG News in this example. To operate on TG Read, you need to first use `/settings(/s)`, select TG Read, then click "Apply current rule" to perform add/remove/modify/query operations on it. You can also use `/add_all(/aa)`, `/replace_all(/ra)` and similar commands to apply to both rules simultaneously.
 
-这样，你就能收到经过过滤和格式化的频道消息了
+This way, you'll receive filtered and formatted channel messages.
 
-### 🔧 特殊使用场景示例  
+### 🔧 Special Use Case Examples
 
-#### 1. TG 频道的部分消息由于文字嵌入链接，点击会让你确认再跳转，例如 NodeSeek 的官方通知频道  
+#### 1. Some messages in TG channels have text embedded with links, clicking them requires confirmation before redirecting, e.g., NodeSeek's official notification channel
 
-频道的原始消息格式 
+Original message format from the channel
 ```markdown
-[**贴子标题**](https://www.nodeseek.com/post-xxxx-1)
-```  
-可以对通知频道的转发规则 **依次** 使用以下指令：  
+[**Post Title**](https://www.nodeseek.com/post-xxxx-1)
+```
+You can use the following commands **sequentially** on the notification channel's forwarding rule:
 ```plaintext
 /replace \*\*
 /replace \[(?:\[([^\]]+)\])?([^\]]+)\]\(([^)]+)\) [\1]\2\n(\3)
 /replace \[\]\s*
-```  
-最终所有转发的消息都会变成以下格式，这样直接点击链接就无需确认跳转：  
+```
+All forwarded messages will then become the following format, allowing direct link clicks without confirmation:
 ```plaintext
-贴子标题
+Post Title
 (https://www.nodeseek.com/post-xxxx-1)
-```  
+```
 
 ---
 
-#### 2. 监听用户消息格式不美观，可优化消息显示方式  
+#### 2. Monitored user messages have unattractive formatting, can optimize message display
 
-**依次** 使用以下指令：  
+Use the following commands **sequentially**:
 ```plaintext
 /r ^(?=.) <blockquote>
 /r (?<=.)(?=$) </blockquote>
-```  
-然后设置消息格式为 **HTML**，这样监听用户消息时，消息格式就会美观很多：  
+```
+Then set the message format to **HTML**, which will make monitored user messages look much better:
 
-![示例图片](./images/user_spy.png)
-
----
-
-#### 3. 同步规则操作  
-
-在 **设置菜单** 中开启 **"同步规则"**，并选择 **目标规则**，当前规则的所有操作将同步到选定的规则。  
-
-适用于以下场景：  
-- 不想在当前窗口处理规则  
-- 需要同时操作多个规则  
-
-如果当前规则仅用于同步而不需实际生效，可将 **"是否启用规则"** 设置为 **"否"**。
+![Example image](./images/user_spy.png)
 
 ---
 
-#### 4. 如何转发到收藏夹 (Saved Messages)
-> 不推荐，操作比较繁琐
-1. 在你的 bot 管理的任意群组或频道中发送以下命令：  
+#### 3. Sync rule operations
+
+Enable **"Sync rules"** in the **settings menu** and select the **target rule**. All operations on the current rule will be synced to the selected rule.
+
+Applicable scenarios:
+- Don't want to manage rules in the current window
+- Need to operate on multiple rules simultaneously
+
+If the current rule is only for syncing and doesn't need to take effect, you can set **"Enable rule"** to **"No"**.
+
+---
+
+#### 4. How to forward to Saved Messages
+> Not recommended, the process is quite tedious
+1. In any group or channel managed by your bot, send the following command:
    ```bash
-   /bind https://t.me/tgnews 你的用户名（即展示的名称）
-   ```  
+   /bind https://t.me/tgnews Your Username (i.e., display name)
+   ```
 
-2. 随意新建一个规则，并进行以下设置：  
-   - **开启同步功能**，同步到 **转发收藏夹的规则**
-   - **转发模式** 选择 **"用户模式"**  
-   - **禁用规则**（将规则”是否启用规则“设置为关闭）  
+2. Create any new rule and configure the following:
+   - **Enable sync feature**, sync to the **forward-to-saved-messages rule**
+   - **Forwarding mode** select **"User mode"**
+   - **Disable rule** (set "Enable rule" to off)
 
-这样，你就可以在其他规则中管理收藏夹的规则，所有操作都会同步到 **转发收藏夹** 规则中。
+This way, you can manage the saved messages rule from other rules, and all operations will be synced to the **forward-to-saved-messages** rule.
 
 
-## 🛠️ 功能详解
+## 🛠️ Feature Details
 
-### ⚡ 过滤流程
-首先要清楚消息过滤顺序，括号里对应设置里的选项：
+### ⚡ Filtering Process
+First, understand the message filtering order (options in parentheses correspond to settings):
 
 ![img](./images/flow_chart.png)
 
 
 
-### ⚙️ 设置说明
-| 主设置界面 | AI设置界面 | 媒体设置界面 |
+### ⚙️ Settings Description
+| Main Settings Interface | AI Settings Interface | Media Settings Interface |
 |---------|------|------|
 | ![img](./images/settings_main.png) | ![img](./images/settings_ai.png) | ![img](./images/settings_media.png) |
 
-#### 主设置说明
-以下对设置选项进行说明
-| 设置选项 | 说明 |
+#### Main Settings Description
+The following describes the settings options
+| Setting Option | Description |
 |---------|------|
-| 应用当前规则 | 选择后，关键字指令(/add,/remove_keyword,/list_keyword等)和替换指令(/replace,/list_replace等)的增删改查导入导出将作用于当前规则 |
-| 是否启用规则 | 选择后，当前规则将被启用，否则将被禁用 |
-| 当前关键字添加模式 | 点击可切换黑/白名单模式，由于黑白名单是分开处理的，需要手动切换，注意，此时关键字的增删改查都和这里的模式有关，如果要使用指令对当前规则的白名单进行增删改查操作，请确保这里的模式是白名单 |
-| 过滤关键字时是否附带发送者名称和ID | 启用后，过滤关键字时会包含发送者名称和ID信息(不会添加到实际消息中)，可用于针对特定用户进行过滤 |
-| 处理模式 | 可切换编辑/转发模式。编辑模式下会直接修改原消息；转发模式下会将处理后的消息转发到目标聊天。注意:编辑模式仅适用于你是管理员的且原消息是频道消息或群组中自己发送的消息 |
-| 过滤模式 | 可切换仅黑名单/仅白名单/先黑后白/先白后黑模式。由于黑白名单分开存储，可根据需要选择不同的过滤方式 |
-| 转发模式 | 可切换用户/机器人模式。用户模式下使用用户账号转发消息；机器人模式下使用机器人账号发送消息 |
-| 替换模式 | 启用后将根据已设置的替换规则对消息进行处理 |
-| 消息格式 | 可切换Markdown/HTML格式，在最终发送阶段生效，一般使用默认的Markdown即可 |
-| 预览模式 | 可切换开启/关闭/跟随原消息。开启后会预览消息中的第一个链接，默认跟随原消息的预览状态 |
-| 原始发送者/原始链接/发送时间 | 启用后会在消息发送时添加这些信息，默认关闭，可在"其他设置"菜单中设置自定义模板 |
-| 延时处理 | 启用后会按设定的延迟时间重新获取原消息内容，再开始处理流程，适用于频繁修改消息的频道/群组，可在 config/delay_time.txt 中添加自定义延迟时间 |
-| 删除原始消息 | 启用后会删除原消息，使用前请确认是否有删除权限 |
-| 评论区直达按钮 | 启用后在转发后的消息下发添加评论区直达按钮，前提是原消息有评论区 |
-| 同步到其他规则 | 启用后会同步当前规则的操作到其他规则，除了"是否启用规则"和"开启同步"其他设置都会同步 |
+| Apply current rule | After selection, keyword commands (/add, /remove_keyword, /list_keyword, etc.) and replace commands (/replace, /list_replace, etc.) add/remove/modify/query/import/export operations will apply to the current rule |
+| Enable rule | After selection, the current rule will be enabled; otherwise it will be disabled |
+| Current keyword add mode | Click to switch between blacklist/whitelist mode. Since blacklist and whitelist are processed separately, you need to switch manually. Note: keyword add/remove/modify/query operations are related to this mode. To use commands for add/remove/modify/query on the current rule's whitelist, make sure the mode here is set to whitelist |
+| Include sender name and ID when filtering keywords | When enabled, keyword filtering will include sender name and ID information (not added to the actual message), which can be used to filter specific users |
+| Processing mode | Switch between edit/forward mode. In edit mode, the original message is modified directly; in forward mode, the processed message is forwarded to the target chat. Note: edit mode only works when you are an admin and the original message is a channel message or a message you sent in a group |
+| Filter mode | Switch between blacklist only/whitelist only/blacklist then whitelist/whitelist then blacklist modes. Since blacklist and whitelist are stored separately, choose different filtering methods as needed |
+| Forwarding mode | Switch between user/bot mode. In user mode, the user account forwards messages; in bot mode, the bot account sends messages |
+| Replace mode | When enabled, messages will be processed according to configured replace rules |
+| Message format | Switch between Markdown/HTML format, takes effect at the final sending stage. Generally use the default Markdown |
+| Preview mode | Switch between on/off/follow original message. When on, previews the first link in the message. Default follows the original message's preview state |
+| Original sender/Original link/Send time | When enabled, this information is added when sending messages. Default off, custom templates can be set in the "Other settings" menu |
+| Delayed processing | When enabled, the original message content is re-fetched after the set delay time before starting the processing flow. Suitable for channels/groups that frequently edit messages. Custom delay times can be added in config/delay_time.txt |
+| Delete original message | When enabled, the original message is deleted. Please confirm you have deletion permissions before use |
+| Comment section shortcut button | When enabled, a comment section shortcut button is added below the forwarded message, provided the original message has a comment section |
+| Sync to other rules | When enabled, operations on the current rule are synced to other rules. All settings are synced except "Enable rule" and "Enable sync" |
 
-#### 媒体设置说明
-| 设置选项 | 说明 |
+#### Media Settings Description
+| Setting Option | Description |
 |---------|------|
-| 媒体类型过滤 | 启用后会过滤掉非选中的媒体类型 |
-| 选择的媒体类型 | 选择要**屏蔽**的媒体类型，注意：Telegram对媒体文件的分类是固定的，主要就是这几种，图片 (photo)，文档 (document)，视频 (video)，音频 (audio)，语音 (voice)，其中所有不属于图片、视频、音频、语音的文件都会被归类为"文档"类型。比如病毒文件(.exe)、压缩包(.zip)、文本文件(.txt)等，在 Telegram 中都属于"文档"类型。 |
-| 媒体大小过滤 | 启用后会过滤掉超过设置大小的媒体 |
-| 媒体大小限制 | 设置媒体大小限制，单位：MB，可在 config/media_size.txt 中添加自定义大小 |
-| 媒体大小超限时发送提醒 | 启用后媒体超限会发送提醒消息 |
-| 媒体扩展名过滤 | 启用后会过滤掉选中的媒体扩展名 |
-| 媒体扩展名过滤模式 | 切换黑/白名单模式 |
-| 选择的媒体扩展名 | 选择要过滤的的媒体扩展名，可在 config/media_extensions.txt 中添加自定义扩展名 |
-| 放行文本 | 开启后过滤媒体时不会屏蔽整条消息，而是单独转发文本 |
+| Media type filter | When enabled, non-selected media types will be filtered out |
+| Selected media types | Select media types to **block**. Note: Telegram's classification of media files is fixed, mainly these types: photo, document, video, audio, voice. All files that don't belong to photo, video, audio, or voice categories are classified as "document" type. For example, executable files (.exe), archives (.zip), text files (.txt) are all classified as "document" type in Telegram |
+| Media size filter | When enabled, media exceeding the set size will be filtered out |
+| Media size limit | Set media size limit in MB. Custom sizes can be added in config/media_size.txt |
+| Send notification when media exceeds size limit | When enabled, a notification message is sent when media exceeds the limit |
+| Media extension filter | When enabled, selected media extensions will be filtered out |
+| Media extension filter mode | Switch between blacklist/whitelist mode |
+| Selected media extensions | Select media extensions to filter. Custom extensions can be added in config/media_extensions.txt |
+| Pass through text | When enabled, filtering media won't block the entire message; text will be forwarded separately |
 
-#### 其他设置说明
+#### Other Settings Description
 
-其他设置菜单中整合了常用的几个指令，使其可以在界面直接交互，包括：
-- 复制规则
-- 复制关键字
-- 复制替换规则
-- 清除关键字
-- 清除替换规则
-- 删除规则
+The other settings menu integrates several commonly used commands for direct UI interaction, including:
+- Copy rule
+- Copy keywords
+- Copy replace rules
+- Clear keywords
+- Clear replace rules
+- Delete rule
 
-其中清除关键字、清除替换规则、删除规则可以对其他规则生效
+Clear keywords, clear replace rules, and delete rule can also be applied to other rules.
 
-同时你可以在这里设置自定义模板，包括：用户信息模板、时间模板、原始链接模板
-| 设置选项 | 说明 |
+You can also set custom templates here, including: user info template, time template, original link template
+| Setting Option | Description |
 |---------|------|
-|反转黑名单| 启用后，将把黑名单当成白名单处理，若使用先白后黑模式，黑名单会作为第二重白名单处理|
-|反转白名单| 启用后，将把白名单当成黑名单处理，若使用先白后黑模式，白名单会作为第二重黑名单处理|
+| Invert blacklist | When enabled, the blacklist is treated as a whitelist. In whitelist-then-blacklist mode, the blacklist acts as a second-level whitelist |
+| Invert whitelist | When enabled, the whitelist is treated as a blacklist. In whitelist-then-blacklist mode, the whitelist acts as a second-level blacklist |
 
-结合“先 X 后 X”模式，可实现双层黑/白名单机制。例如，反转黑名单后，“先白后黑”中的黑名单将变为第二层级的白名单，适用于监听特定用户并筛选其特殊关键词等多种场景。
+Combined with "X then X" modes, a dual-layer blacklist/whitelist mechanism can be achieved. For example, after inverting the blacklist, the blacklist in "whitelist then blacklist" mode becomes a second-level whitelist, suitable for monitoring specific users and filtering their special keywords, among other scenarios.
 
 
 
-### 🤖 AI功能
+### 🤖 AI Features
 
-项目内置了各大厂商的AI接口，可以帮你：
-- 自动翻译外语内容
-- 定时总结群组消息
-- 智能过滤广告信息
-- 自动为内容打标签
+The project has built-in AI APIs from various major providers that can help you:
+- Automatically translate foreign language content
+- Scheduled group message summaries
+- Intelligently filter advertisements
+- Automatically tag content
 ....
-  
-#### 配置
 
-1. 在 `.env` 文件中配置你的 AI 接口：
+#### Configuration
+
+1. Configure your AI API in the `.env` file:
 ```ini
 # OpenAI API
 OPENAI_API_KEY=your_key
-OPENAI_API_BASE=  # 可选，默认官方接口
+OPENAI_API_BASE=  # Optional, defaults to official API
 
 # Claude API
 CLAUDE_API_KEY=your_key
 
-# 其他支持的接口...
+# Other supported APIs...
 ```
 
-#### 自定义模型
+#### Custom Models
 
-没找到想要的模型名字？在 `config/ai_models.json` 中添加即可。
+Can't find the model name you want? Add it in `config/ai_models.json`.
 
-#### AI 处理
+#### AI Processing
 
-AI处理提示词中可以使用以下格式：
-- `{source_message_context:数字}` - 获取源聊天窗口最新的指定数量消息
-- `{target_message_context:数字}` - 获取目标聊天窗口最新的指定数量消息
-- `{source_message_time:数字}` - 获取源聊天窗口最近指定分钟数的消息
-- `{target_message_time:数字}` - 获取目标聊天窗口最近指定分钟数的消息
+The following formats can be used in AI processing prompts:
+- `{source_message_context:number}` - Get the latest specified number of messages from the source chat window
+- `{target_message_context:number}` - Get the latest specified number of messages from the target chat window
+- `{source_message_time:number}` - Get messages from the source chat window within the specified number of minutes
+- `{target_message_time:number}` - Get messages from the target chat window within the specified number of minutes
 
-提示词示例：
+Prompt example:
 
-前置：开启AI处理后再次执行关键词过滤，把“#不转发”添加到过滤关键字中
+Prerequisite: After enabling AI processing, perform keyword filtering again. Add "#donotforward" to the filter keywords.
 ```
-这是一个资讯整合频道，从多个源获取消息，现在你要判断新资讯是否和历史资讯内容重复了，若重复，则只需要回复“#不转发”，否则请返回新资讯的原文并保持格式。
-记住，你只能返回“#不转发”或者新资讯的原文。
-以下是历史资讯：{target_message_context:10}
-以下是新资讯：
+This is a news aggregation channel that collects messages from multiple sources. You need to determine whether the new article duplicates existing articles. If it's a duplicate, just reply "#donotforward". Otherwise, return the original text of the new article while preserving the format.
+Remember, you can only return "#donotforward" or the original text of the new article.
+Here are the historical articles: {target_message_context:10}
+Here is the new article:
 ```
 
-#### 定时总结
+#### Scheduled Summary
 
-开启定时总结后，机器人会在指定时间（默认每天早上 7 点）自动总结过去 24 小时的消息。
+After enabling scheduled summary, the bot will automatically summarize messages from the past 24 hours at the specified time (default: 7 AM daily).
 
-- 可在 `config/summary_time.txt` 中添加多个总结时间点
-- 在 `.env` 中设置默认时区
-- 自定义总结的提示词
+- Multiple summary time points can be added in `config/summary_time.txt`
+- Set the default timezone in `.env`
+- Customize the summary prompt
 
-> 注意：总结功能会消耗较多的 API 额度，请根据需要开启。
+> Note: The summary feature consumes a significant amount of API quota. Please enable it based on your needs.
 
-### 📢 推送功能
+### 📢 Push Feature
 
-除了telegram内部消息转发外，项目还集成了Apprise，利用其强大的推送功能，你可以轻松将消息分发至聊天软件、邮件、短信、Webhooks、APIs 等各种平台。
+In addition to internal Telegram message forwarding, the project also integrates Apprise. Leveraging its powerful push capabilities, you can easily distribute messages to chat apps, email, SMS, Webhooks, APIs, and various other platforms.
 
-| 推送设置主界面 | 推送设置子界面 |
+| Push Settings Main Interface | Push Settings Sub-interface |
 |---------|------|
 | ![img](./images/settings_push.png) | ![img](./images/settings_push_sub1.png) |
 
-#### 设置说明
+#### Settings Description
 
-| 设置选项 | 说明 |
+| Setting Option | Description |
 |---------|------|
-| 只转发到推送配置 | 开启后跳过转发过滤器,直接跳到推送过滤器 |
-| 媒体发送方式 | 支持两种模式:<br>- 单个:每个媒体文件单独推送一条消息<br>- 全部:将所有媒体文件合并到一条消息中推送<br>具体使用哪种模式取决于目标平台是否支持一次推送多个附件 |
+| Only forward to push configuration | When enabled, skips the forwarding filter and goes directly to the push filter |
+| Media sending method | Supports two modes:<br>- Single: Each media file is pushed as a separate message<br>- All: All media files are combined into one message for pushing<br>Which mode to use depends on whether the target platform supports pushing multiple attachments at once |
 
-### 如何添加推送配置？
-完整的推送平台列表和配置格式请参考 [Apprise Wiki](https://github.com/caronc/apprise/wiki)
+### How to add push configuration?
+For the complete list of push platforms and configuration formats, refer to [Apprise Wiki](https://github.com/caronc/apprise/wiki)
 
-**示例：使用 ntfy.sh 推送**
+**Example: Push using ntfy.sh**
 
-*   假设你想推送到 ntfy.sh 上的一个名为 `my_topic` 的主题。
-*   根据 Apprise Wiki，其格式为 `ntfy://ntfy.sh/你的主题名`。
-*   那么，你需要添加的配置 URL 就是：
+*   Suppose you want to push to a topic named `my_topic` on ntfy.sh.
+*   According to Apprise Wiki, the format is `ntfy://ntfy.sh/your_topic_name`.
+*   The configuration URL you need to add is:
     ```
     ntfy://ntfy.sh/my_topic
     ```
 
 
 
-## 📰 RSS订阅
+## 📰 RSS Subscription
 
-项目集成了将Telegram消息转换为RSS Feed的功能，可以轻松地将Telegram频道/群组内容转为标准RSS格式，方便通过RSS阅读器跟踪。
+The project integrates functionality to convert Telegram messages into RSS Feeds, making it easy to convert Telegram channel/group content into standard RSS format for tracking via RSS readers.
 
-### 启用RSS功能
+### Enable RSS Feature
 
-1. 在 `.env` 文件中配置RSS相关参数：
+1. Configure RSS related parameters in the `.env` file:
    ```ini
-   # RSS配置
-   # 是否启用RSS功能 (true/false)
+   # RSS Configuration
+   # Whether to enable RSS functionality (true/false)
    RSS_ENABLED=true
-   # RSS基础访问URL，留空则使用默认的访问URL（例如：https://rss.example.com）
+   # RSS base access URL, leave empty to use the default access URL (e.g., https://rss.example.com)
    RSS_BASE_URL=
-   # RSS媒体文件基础URL，留空则使用默认的访问URL（例如：https://media.example.com）
+   # RSS media file base URL, leave empty to use the default access URL (e.g., https://media.example.com)
    RSS_MEDIA_BASE_URL=
    ```
-2. docker-compose.yml取消注释
+2. Uncomment in docker-compose.yml
    ```
-    # 如果需要使用 RSS 功能，请取消以下注释
+    # If you need to use RSS functionality, uncomment the following
      ports:
        - 9804:8000
    ```
-3. 重启服务以启用RSS功能：
+3. Restart the service to enable RSS functionality:
    ```bash
    docker-compose restart
    ```
-> 注意：旧版本用户需要用新的docker-compose.yml文件重新部署：[docker-compose.yml](./docker-compose.yml)
-### 访问RSS仪表盘
+> Note: Users of older versions need to redeploy with the new docker-compose.yml file: [docker-compose.yml](./docker-compose.yml)
+### Access RSS Dashboard
 
-浏览器访问 `http://你的服务器地址:9804/`
+Access `http://your_server_address:9804/` in your browser
 
-### Nginx配置
+### Nginx Configuration
 ```
  location / {
         proxy_pass http://127.0.0.1:9804;
@@ -420,138 +420,138 @@ AI处理提示词中可以使用以下格式：
     }
 ```
 
-### RSS配置管理
+### RSS Configuration Management
 
-相关界面
+Related interfaces
 
-| 登录界面 | Dashboard界面 | 新建/编辑配置界面 |
+| Login Interface | Dashboard Interface | Create/Edit Configuration Interface |
 |---------|------|------|
 | ![img](./images/rss_login.png) | ![img](./images/rss_dashboard.png) | ![img](./images/rss_create_config.png) |
 
 
-### 新建/编辑配置界面说明
-| 设置选项 | 说明 |
+### Create/Edit Configuration Interface Description
+| Setting Option | Description |
 |---------|------|
-| 规则ID | 选择现有的一个转发规则，用于生成RSS订阅 |
-| 复制已有配置 | 选择现有的一个RSS配置，复制它的配置到当前表单|
-|订阅源标题| 设置订阅源标题 |
-|自动填充| 点击后自动根据规则的源聊天窗口名字生成订阅源标题 |
-|订阅源描述| 设置订阅源描述 |
-|语言| 占位，暂无特殊功能 |
-|最大条目数| 设置RSS订阅源的最大条目数，默认50，对于媒体比较多的聊天源，请根据硬盘实际硬盘大小设置 |
-|使用 AI 提取标题和内容| 启用后，将使用AI服务自动分析消息，提取标题和内容和整理格式，AI模型请在bot中设置，不受bot中“是否开启 AI 处理”选项影响，此选项开启后和下面所有配置互斥 |
-|AI 提取提示词| 设置AI提取标题和内容的提示词，如需自定义，请务必让AI返回以下json格式内容：`{ "title": "标题", "content": "正文内容" }` |
-|自动提取标题| 启用后，由预设好的正则表达式自动提取标题 |
-|自动提取内容| 启用后，由预设好的正则表达式自动提取内容 |
-|自动将 Markdown 转换为 HTML| 启用后，将使用相关库自动将Telegram中的Markdown格式转换为标准HTML，如需自行处理，请在bot中使用 `/replace` 自行替换 |
-|启用自定义标题提取正则表达式| 启用后，将使用自定义正则表达式提取标题 |
-|启用自定义内容提取正则表达式| 启用后，将使用自定义正则表达式提取内容 |
-|优先级| 设置正则表达式的执行顺序，数字越小优先级越高。系统会按优先级从高到低依次执行正则表达式，**前一个正则表达式提取的结果会作为下一个的输入**，直到完成所有提取 |
-|正则表达式测试| 可用于测试当前正则表达式是否匹配目标文本 |
+| Rule ID | Select an existing forwarding rule to generate RSS subscription |
+| Copy existing configuration | Select an existing RSS configuration and copy its settings to the current form |
+| Subscription source title | Set the subscription source title |
+| Auto-fill | Click to automatically generate a subscription source title based on the rule's source chat window name |
+| Subscription source description | Set the subscription source description |
+| Language | Placeholder, no special function currently |
+| Maximum entries | Set the maximum number of entries for the RSS subscription source, default 50. For chat sources with lots of media, set according to actual disk size |
+| Use AI to extract title and content | When enabled, AI service will automatically analyze messages, extract titles and content, and organize formatting. Set the AI model in the bot; this is not affected by the "Enable AI processing" option in the bot. When this option is enabled, it is mutually exclusive with all configurations below |
+| AI extraction prompt | Set the prompt for AI title and content extraction. If customizing, make sure AI returns content in the following JSON format: `{ "title": "title", "content": "body content" }` |
+| Auto-extract title | When enabled, titles are automatically extracted using preset regular expressions |
+| Auto-extract content | When enabled, content is automatically extracted using preset regular expressions |
+| Auto-convert Markdown to HTML | When enabled, Markdown format in Telegram will be automatically converted to standard HTML using relevant libraries. For manual handling, use `/replace` in the bot for custom replacements |
+| Enable custom title extraction regex | When enabled, custom regular expressions will be used to extract titles |
+| Enable custom content extraction regex | When enabled, custom regular expressions will be used to extract content |
+| Priority | Set the execution order of regular expressions; lower numbers mean higher priority. The system executes regex from highest to lowest priority, where **the result of the previous regex becomes the input for the next one**, until all extractions are complete |
+| Regex test | Can be used to test whether the current regular expression matches the target text |
 
-### 特殊说明
-- 若只开启自动提取标题，而不开启自动提取内容，则内容会是包含提取了标题的完整的Telegram消息内容
-- 若内容处理选项和正则表达式配置都为空，会自动匹配前20个字符作为标题，内容则为原始消息
-
-
-### 特殊设置项
-若在.env中开启`RSS_ENABLED=true`，则会在bot的设置中会新增一个`只转发到RSS`的选项，启用后，消息经过各种处理后会在RSS过滤器处理后中断，不会执行转发/编辑
+### Special Notes
+- If only auto-extract title is enabled without auto-extract content, the content will be the complete Telegram message including the extracted title
+- If content processing options and regex configurations are both empty, the first 20 characters are automatically matched as the title, and the content is the original message
 
 
-### 注意事项
+### Special Settings
+If `RSS_ENABLED=true` is set in .env, a new "Only forward to RSS" option will appear in the bot's settings. When enabled, messages will be interrupted at the RSS filter after going through various processing, and will not execute forwarding/editing
 
-- 没有找回密码功能，请妥善保管你的账号密码
 
-## 🎯 特殊功能
+### Notes
 
-### 🔗 链接转发功能
+- There is no password recovery feature; please keep your credentials safe
 
-向bot发送消息链接，即可把那条消息转发到当前聊天窗口，无视禁止转发和复制的限制（项目自身功能已无视转发和复制限制
+## 🎯 Special Features
 
-### 🔄 与通用论坛屏蔽插件联动
+### 🔗 Link Forwarding Feature
+
+Send a message link to the bot, and it will forward that message to the current chat window, bypassing restrictions on forwarding and copying (the project's own functionality already bypasses forwarding and copying restrictions).
+
+### 🔄 Integration with Universal Forum Blocker Plugin
 > https://github.com/heavrnl/universalforumblock
 
-确保.env文件中已配置相关参数，在已经绑定好的聊天窗口中使用`/ufb_bind <论坛域名>`，即可实现三端联动屏蔽，使用`/ufb_item_change`切换要同步当前域名的主页关键字/主页用户名/内容页关键字/内容页用户名
+Make sure the relevant parameters are configured in the .env file. In a chat window that has already been bound, use `/ufb_bind <forum_domain>` to achieve three-way synchronized blocking. Use `/ufb_item_change` to switch between syncing the current domain's homepage keywords/homepage usernames/content page keywords/content page usernames.
 
-## 📝 命令列表
+## 📝 Command List
 
 ```bash
-命令列表
+Command List
 
-基础命令
-/start - 开始使用
-/help(/h) - 显示此帮助信息
+Basic Commands
+/start - Get started
+/help(/h) - Show this help information
 
-绑定和设置
-/bind(/b) <源聊天链接或名称> [目标聊天链接或名称] - 绑定源聊天
-/settings(/s) [规则ID] - 管理转发规则
-/changelog(/cl) - 查看更新日志
+Binding and Settings
+/bind(/b) <source chat link or name> [target chat link or name] - Bind source chat
+/settings(/s) [rule ID] - Manage forwarding rules
+/changelog(/cl) - View changelog
 
-转发规则管理
-/copy_rule(/cr)  <源规则ID> [目标规则ID] - 复制指定规则的所有设置到当前规则或目标规则ID
-/delete_rule(/dr) <规则ID> [规则ID] [规则ID] ... - 删除指定规则
-/list_rule(/lr) - 列出所有转发规则
+Forwarding Rule Management
+/copy_rule(/cr) <source rule ID> [target rule ID] - Copy all settings from specified rule to current rule or target rule ID
+/delete_rule(/dr) <rule ID> [rule ID] [rule ID] ... - Delete specified rules
+/list_rule(/lr) - List all forwarding rules
 
-关键字管理
-/add(/a) <关键字> [关键字] ["关 键 字"] ['关 键 字'] ... - 添加普通关键字
-/add_regex(/ar) <正则表达式> [正则表达式] [正则表达式] ... - 添加正则表达式
-/add_all(/aa) <关键字> [关键字] [关键字] ... - 添加普通关键字到当前频道绑定的所有规则
-/add_regex_all(/ara) <正则表达式> [正则表达式] [正则表达式] ... - 添加正则关键字到所有规则
-/list_keyword(/lk) - 列出所有关键字
-/remove_keyword(/rk) <关键词> ["关 键 字"] ['关 键 字'] ... - 删除关键字
-/remove_keyword_by_id(/rkbi) <ID> [ID] [ID] ... - 按ID删除关键字
-/remove_all_keyword(/rak) <关键词> ["关 键 字"] ['关 键 字'] ... - 删除当前频道绑定的所有规则的指定关键字
-/clear_all_keywords(/cak) - 清除当前规则的所有关键字
-/clear_all_keywords_regex(/cakr) - 清除当前规则的所有正则关键字
-/copy_keywords(/ck) <规则ID> - 复制指定规则的关键字到当前规则
-/copy_keywords_regex(/ckr) <规则ID> - 复制指定规则的正则关键字到当前规则
-/copy_replace(/crp) <规则ID> - 复制指定规则的替换规则到当前规则
-/copy_rule(/cr) <规则ID> - 复制指定规则的所有设置到当前规则（包括关键字、正则、替换规则、媒体设置等）
+Keyword Management
+/add(/a) <keyword> [keyword] ["key word"] ['key word'] ... - Add plain keywords
+/add_regex(/ar) <regex> [regex] [regex] ... - Add regular expressions
+/add_all(/aa) <keyword> [keyword] [keyword] ... - Add plain keywords to all rules bound to current channel
+/add_regex_all(/ara) <regex> [regex] [regex] ... - Add regex keywords to all rules
+/list_keyword(/lk) - List all keywords
+/remove_keyword(/rk) <keyword> ["key word"] ['key word'] ... - Remove keywords
+/remove_keyword_by_id(/rkbi) <ID> [ID] [ID] ... - Remove keywords by ID
+/remove_all_keyword(/rak) <keyword> ["key word"] ['key word'] ... - Remove specified keyword from all rules bound to current channel
+/clear_all_keywords(/cak) - Clear all keywords of current rule
+/clear_all_keywords_regex(/cakr) - Clear all regex keywords of current rule
+/copy_keywords(/ck) <rule ID> - Copy keywords from specified rule to current rule
+/copy_keywords_regex(/ckr) <rule ID> - Copy regex keywords from specified rule to current rule
+/copy_replace(/crp) <rule ID> - Copy replace rules from specified rule to current rule
+/copy_rule(/cr) <rule ID> - Copy all settings from specified rule to current rule (including keywords, regex, replace rules, media settings, etc.)
 
-替换规则管理
-/replace(/r) <正则表达式> [替换内容] - 添加替换规则
-/replace_all(/ra) <正则表达式> [替换内容] - 添加替换规则到所有规则
-/list_replace(/lrp) - 列出所有替换规则
-/remove_replace(/rr) <序号> - 删除替换规则
-/clear_all_replace(/car) - 清除当前规则的所有替换规则
-/copy_replace(/crp) <规则ID> - 复制指定规则的替换规则到当前规则
+Replace Rule Management
+/replace(/r) <regex> [replacement] - Add replace rule
+/replace_all(/ra) <regex> [replacement] - Add replace rule to all rules
+/list_replace(/lrp) - List all replace rules
+/remove_replace(/rr) <index> - Remove replace rule
+/clear_all_replace(/car) - Clear all replace rules of current rule
+/copy_replace(/crp) <rule ID> - Copy replace rules from specified rule to current rule
 
-导入导出
-/export_keyword(/ek) - 导出当前规则的关键字
-/export_replace(/er) - 导出当前规则的替换规则
-/import_keyword(/ik) <同时发送文件> - 导入普通关键字
-/import_regex_keyword(/irk) <同时发送文件> - 导入正则关键字
-/import_replace(/ir) <同时发送文件> - 导入替换规则
+Import/Export
+/export_keyword(/ek) - Export keywords of current rule
+/export_replace(/er) - Export replace rules of current rule
+/import_keyword(/ik) <attach file> - Import plain keywords
+/import_regex_keyword(/irk) <attach file> - Import regex keywords
+/import_replace(/ir) <attach file> - Import replace rules
 
-RSS相关
-/delete_rss_user(/dru) [用户名] - 删除RSS用户
+RSS Related
+/delete_rss_user(/dru) [username] - Delete RSS user
 
-UFB相关
-/ufb_bind(/ub) <域名> - 绑定UFB域名
-/ufb_unbind(/uu) - 解绑UFB域名
-/ufb_item_change(/uic) - 切换UFB同步配置类型
+UFB Related
+/ufb_bind(/ub) <domain> - Bind UFB domain
+/ufb_unbind(/uu) - Unbind UFB domain
+/ufb_item_change(/uic) - Switch UFB sync configuration type
 
-提示
-• 括号内为命令的简写形式
-• 尖括号 <> 表示必填参数
-• 方括号 [] 表示可选参数
-• 导入命令需要同时发送文件
+Tips
+• Content in parentheses is the shorthand form of the command
+• Angle brackets <> indicate required parameters
+• Square brackets [] indicate optional parameters
+• Import commands require attaching a file
 ```
 
-## 💐 致谢
+## 💐 Acknowledgments
 
 - [Apprise](https://github.com/caronc/apprise)
 - [Telethon](https://github.com/LonamiWebs/Telethon)
 
-## ☕ 捐赠
+## ☕ Donate
 
-如果你觉得这个项目对你有帮助，欢迎通过以下方式请我喝杯咖啡：
+If you find this project helpful, feel free to buy me a coffee through the following:
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/0heavrnl)
 
 
-## 📄 开源协议
+## 📄 License
 
-本项目采用 [GPL-3.0](LICENSE) 开源协议，详细信息请参阅 [LICENSE](LICENSE) 文件。
+This project is licensed under the [GPL-3.0](LICENSE) license. For details, please refer to the [LICENSE](LICENSE) file.
 
 
