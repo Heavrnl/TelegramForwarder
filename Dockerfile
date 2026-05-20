@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && dpkg-reconfigure -f noninteractive tzdata \
     && apt-get install -y \
+    ffmpeg \
     gcc \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*

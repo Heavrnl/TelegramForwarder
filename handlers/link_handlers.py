@@ -3,6 +3,12 @@ import os
 import logging
 from utils.common import get_main_module, get_user_id
 from utils.constants import TEMP_DIR
+from utils.video_thumbnail import (
+    build_send_file_video_kwargs,
+    cleanup_video_kwargs,
+    is_video_file,
+    send_album_with_video_thumbnails,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -89,14 +95,23 @@ async def handle_media_group(client, user_client, chat_id, message, event):
                         logger.error(f'下载媒体文件失败: {str(e)}')
 
             if files:
-                # 发送媒体组
-                await client.send_file(
-                    event.chat_id,
-                    files,
-                    caption=caption,
-                    parse_mode='Markdown',
-                    buttons=buttons
-                )
+                if any(is_video_file(file_path) for file_path in files):
+                    await send_album_with_video_thumbnails(
+                        client,
+                        event.chat_id,
+                        files,
+                        caption=caption,
+                        parse_mode='Markdown',
+                    )
+                else:
+                    # 发送媒体组
+                    await client.send_file(
+                        event.chat_id,
+                        files,
+                        caption=caption,
+                        parse_mode='Markdown',
+                        buttons=buttons
+                    )
                 logger.info(f'已转发媒体组消息，共 {len(files)} 个文件')
 
     except Exception as e:
@@ -117,6 +132,7 @@ async def handle_single_message(client, message, event):
     parse_mode = 'Markdown'
     buttons = message.buttons if hasattr(message, 'buttons') else None
     file_path = None
+    video_kwargs = {}
 
     try:
         if message.media:
@@ -125,12 +141,14 @@ async def handle_single_message(client, message, event):
             if file_path:
                 logger.info(f'已下载媒体文件: {file_path}')
                 caption = message.text if message.text else ''
+                video_kwargs = build_send_file_video_kwargs(file_path)
                 await client.send_file(
                     event.chat_id,
                     file_path,
                     caption=caption,
                     parse_mode=parse_mode,
-                    buttons=buttons
+                    buttons=buttons,
+                    **video_kwargs
                 )
                 logger.info('已转发单条媒体消息')
         else:
@@ -155,3 +173,4 @@ async def handle_single_message(client, message, event):
                 logger.info(f'已删除临时文件: {file_path}')
             except Exception as e:
                 logger.error(f'删除临时文件失败 {file_path}: {str(e)}')
+        cleanup_video_kwargs(video_kwargs)

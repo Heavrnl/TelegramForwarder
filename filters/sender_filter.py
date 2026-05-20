@@ -3,6 +3,12 @@ import os
 from filters.base_filter import BaseFilter
 from enums.enums import PreviewMode
 from telethon.errors import FloodWaitError
+from utils.video_thumbnail import (
+    build_send_file_video_kwargs,
+    cleanup_video_kwargs,
+    is_video_file,
+    send_album_with_video_thumbnails,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -158,19 +164,31 @@ class SenderFilter(BaseFilter):
                 # 添加时间信息和原始链接
                 caption_text += context.time_info + context.original_link
                 
-                # 作为一个组发送所有文件
-                sent_messages = await client.send_file(
-                    target_chat_id,
-                    files,
-                    caption=caption_text,
-                    parse_mode=parse_mode,
-                    buttons=context.buttons,
-                    link_preview={
-                        PreviewMode.ON: True,
-                        PreviewMode.OFF: False,
-                        PreviewMode.FOLLOW: context.event.message.media is not None
-                    }[rule.is_preview]
-                )
+                link_preview = {
+                    PreviewMode.ON: True,
+                    PreviewMode.OFF: False,
+                    PreviewMode.FOLLOW: context.event.message.media is not None
+                }[rule.is_preview]
+
+                if any(is_video_file(file_path) for file_path in files):
+                    sent_messages = await send_album_with_video_thumbnails(
+                        client,
+                        target_chat_id,
+                        files,
+                        caption=caption_text,
+                        parse_mode=parse_mode,
+                    )
+                    logger.info('媒体组包含视频，已作为相册发送并为每个视频绑定独立缩略图')
+                else:
+                    # 纯图片/非视频媒体仍作为一个组发送
+                    sent_messages = await client.send_file(
+                        target_chat_id,
+                        files,
+                        caption=caption_text,
+                        parse_mode=parse_mode,
+                        buttons=context.buttons,
+                        link_preview=link_preview
+                    )
                 # 保存发送的消息到上下文
                 if isinstance(sent_messages, list):
                     context.forwarded_messages = sent_messages
@@ -230,6 +248,7 @@ class SenderFilter(BaseFilter):
         
         # 发送媒体文件
         for file_path in context.media_files:
+            video_kwargs = build_send_file_video_kwargs(file_path)
             try:
                 caption = (
                     context.sender_info + 
@@ -248,13 +267,15 @@ class SenderFilter(BaseFilter):
                         PreviewMode.ON: True,
                         PreviewMode.OFF: False,
                         PreviewMode.FOLLOW: context.event.message.media is not None
-                    }[rule.is_preview]
+                    }[rule.is_preview],
+                    **video_kwargs
                 )
                 logger.info(f'媒体消息已发送')
             except Exception as e:
                 logger.error(f'发送媒体消息时出错: {str(e)}')
                 raise
             finally:
+                cleanup_video_kwargs(video_kwargs)
                 # 删除临时文件，但如果启用了推送则保留
                 if not rule.enable_push:
                     try:
