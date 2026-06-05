@@ -15,6 +15,22 @@ from utils.constants import AI_SETTINGS_TEXT,MEDIA_SETTINGS_TEXT
 
 logger = logging.getLogger(__name__)
 
+def extract_topic_id(message):
+    rt = getattr(message, "reply_to", None)
+    if not rt:
+        return None
+
+    if not getattr(rt, "forum_topic", False):
+        return None
+
+    topic_id = getattr(rt, "reply_to_top_id", None) or getattr(rt, "reply_to_msg_id", None)
+
+    # General 话题视作主聊天
+    if topic_id in (None, 1):
+        return None
+
+    return topic_id
+
 async def get_main_module():
     """获取 main 模块"""
     try:

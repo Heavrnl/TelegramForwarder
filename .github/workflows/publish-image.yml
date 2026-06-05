@@ -1,0 +1,170 @@
+name: Publish Image
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*.*.*"]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runs_on }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            arch: amd64
+            runs_on: ubuntu-latest
+          - platform: linux/arm64
+            arch: arm64
+            runs_on: ubuntu-24.04-arm
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Normalize image name
+        id: vars
+        shell: bash
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.image }}
+          # latest 的默认行为是 auto；会在 semver/tag 等场景自动生成 latest
+          flavor: |
+            latest=auto
+
+          # ✅ Git tag = v1.2.3 时，生成 1.2.3 / 1.2 / 1（注意：{{version}} 会去掉前缀 v）
+          # ✅ push 到 main 时也打 latest（推荐写法：用 is_default_branch 判断）
+          # ✅ 每次都生成提交 SHA tag（默认形如 sha-860c190）
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+
+            type=semver,pattern={{version}}         # 1.2.3
+            type=semver,pattern={{major}}.{{minor}} # 1.2
+            type=semver,pattern={{major}}           # 1
+
+            type=sha,format=short
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ steps.vars.outputs.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
+          provenance: false
+          sbom: false
+
+      - name: Export digest
+        run: |
+          mkdir -p digests
+          echo "${{ steps.build.outputs.digest }}" > "digests/${{ matrix.arch }}.digest"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: digests/${{ matrix.arch }}.digest
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge manifest
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: digests
+          merge-multiple: true
+
+      - name: Normalize image name
+        id: vars
+        shell: bash
+        run: |
+          echo "image=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.image }}
+          # latest 的默认行为是 auto；会在 semver/tag 等场景自动生成 latest
+          flavor: |
+            latest=auto
+
+          # ✅ Git tag = v1.2.3 时，生成 1.2.3 / 1.2 / 1（注意：{{version}} 会去掉前缀 v）
+          # ✅ push 到 main 时也打 latest（推荐写法：用 is_default_branch 判断）
+          # ✅ 每次都生成提交 SHA tag（默认形如 sha-860c190）
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+
+            type=semver,pattern={{version}}         # 1.2.3
+            type=semver,pattern={{major}}.{{minor}} # 1.2
+            type=semver,pattern={{major}}           # 1
+
+            type=sha,format=short
+
+      - name: Create multi-arch manifest and push tags
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+
+          IMAGE="${{ steps.vars.outputs.image }}"
+
+          refs=()
+          for f in digests/*.digest; do
+            digest="$(cat "$f")"
+            refs+=("${IMAGE}@${digest}")
+          done
+
+          tag_args=()
+          while IFS= read -r tag; do
+            [[ -n "$tag" ]] || continue
+            tag_args+=("-t" "$tag")
+          done <<< "$TAGS"
+
+          docker buildx imagetools create "${tag_args[@]}" "${refs[@]}"
+
+          first_tag="$(printf '%s\n' "$TAGS" | sed -n '1p')"
+          docker buildx imagetools inspect "$first_tag"

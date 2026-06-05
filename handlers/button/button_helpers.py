@@ -12,6 +12,14 @@ AI_MODELS= load_ai_models()
 DELAY_TIMES = load_delay_times()
 MEDIA_SIZE = load_max_media_size()
 MEDIA_EXTENSIONS = load_media_extensions()
+SUMMARY_NOW_RANGES = [
+    ("按总结时间", "schedule", None),
+    ("1小时", "1h", 1),
+    ("2小时", "2h", 2),
+    ("4小时", "4h", 4),
+    ("6小时", "6h", 6),
+    ("12小时", "12h", 12),
+]
 async def create_ai_settings_buttons(rule=None,rule_id=None):
     """创建 AI 设置按钮"""
     buttons = []
@@ -49,6 +57,21 @@ async def create_ai_settings_buttons(rule=None,rule_id=None):
     ])
     
     return buttons
+
+
+async def create_summary_now_range_buttons(rule_id):
+    """创建立即总结回溯范围选择按钮"""
+    buttons = []
+    for label, value, _ in SUMMARY_NOW_RANGES:
+        buttons.append([Button.inline(label, f"summary_now_range:{rule_id}:{value}")])
+
+    buttons.append([
+        Button.inline('👈 返回', f"ai_settings:{rule_id}"),
+        Button.inline('❌ 关闭', "close_settings")
+    ])
+
+    return buttons
+
 
 async def create_media_settings_buttons(rule=None,rule_id=None):
     """创建媒体设置按钮"""
@@ -404,7 +427,8 @@ async def create_media_types_buttons(rule_id, media_types):
         'document': '📄 文档',
         'video': '🎬 视频',
         'audio': '🎵 音频',
-        'voice': '🎤 语音'
+        'voice': '🎤 语音',
+        'sticker': '🎭 贴纸'
     }
     
     for field, display_name in media_type_names.items():

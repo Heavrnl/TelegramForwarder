@@ -631,7 +631,8 @@ class DBOperations:
                     document=False,
                     video=False,
                     audio=False,
-                    voice=False
+                    voice=False,
+                    sticker=False
                 )
                 session.add(media_types)
                 session.commit()
@@ -655,7 +656,7 @@ class DBOperations:
                 session.add(media_types)
             
             # 更新媒体类型设置
-            for field in ['photo', 'document', 'video', 'audio', 'voice']:
+            for field in ['photo', 'document', 'video', 'audio', 'voice', 'sticker']:
                 if field in media_types_dict:
                     setattr(media_types, field, media_types_dict[field])
             
@@ -669,7 +670,7 @@ class DBOperations:
     async def toggle_media_type(self, session, rule_id, media_type):
         """切换特定媒体类型的启用状态"""
         try:
-            if media_type not in ['photo', 'document', 'video', 'audio', 'voice']:
+            if media_type not in ['photo', 'document', 'video', 'audio', 'voice', 'sticker']:
                 return False, f"无效的媒体类型: {media_type}"
                 
             success, msg, media_types = await self.get_media_types(session, rule_id)

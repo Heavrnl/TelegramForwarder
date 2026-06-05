@@ -15,6 +15,7 @@ db/forward.db1
 **/venv/
 **/env/
 **/ENV/
+**/.venv/
 
 # 忽略 Telethon 会话文件
 *.session

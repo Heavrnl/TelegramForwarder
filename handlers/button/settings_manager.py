@@ -445,10 +445,13 @@ PUSH_SETTINGS = {
 
 async def create_settings_text(rule):
     """创建设置信息文本"""
+    topic_id = getattr(rule, 'target_topic_id', None)
+    topic_info = f" | Topic: `{topic_id}`\n" if topic_id is not None else ""
+
     text = (
         "📋 管理转发规则\n\n"
         f"规则ID: `{rule.id}`\n" 
-        f"{rule.source_chat.name} --> {rule.target_chat.name}"
+        f"{rule.source_chat.name} --> {rule.target_chat.name}{topic_info}"
     )
     return text
 
@@ -651,5 +654,4 @@ async def create_buttons(rule):
         session.close()
 
     return buttons
-
 

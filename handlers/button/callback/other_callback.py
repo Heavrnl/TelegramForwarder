@@ -314,7 +314,7 @@ async def callback_perform_copy_rule(event, rule_id_data, session, message, data
         for column in inspector.columns:
             column_name = column.key
             if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_chat', 'target_chat',
-                                  'keywords', 'replace_rules', 'media_types']:
+                                  'target_topic_id', 'keywords', 'replace_rules', 'media_types']:
                 # 获取源规则的值并设置到目标规则
                 value = getattr(source_rule, column_name)
                 setattr(target_rule, column_name, value)

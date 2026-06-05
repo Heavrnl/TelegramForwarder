@@ -27,6 +27,7 @@ class ForwardRule(Base):
     id = Column(Integer, primary_key=True)
     source_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
     target_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
+    target_topic_id = Column(Integer, nullable=True)
     forward_mode = Column(Enum(ForwardMode), nullable=False, default=ForwardMode.BLACKLIST)
     use_bot = Column(Boolean, default=True)
     message_mode = Column(Enum(MessageMode), nullable=False, default=MessageMode.MARKDOWN)
@@ -136,6 +137,7 @@ class MediaTypes(Base):
     video = Column(Boolean, default=False)
     audio = Column(Boolean, default=False)
     voice = Column(Boolean, default=False)
+    sticker = Column(Boolean, default=False)
 
     # 关系
     rule = relationship('ForwardRule', back_populates='media_types')
@@ -365,6 +367,7 @@ def migrate_db(engine):
         'enable_only_push': 'ALTER TABLE forward_rules ADD COLUMN enable_only_push BOOLEAN DEFAULT FALSE',
         'media_allow_text': 'ALTER TABLE forward_rules ADD COLUMN media_allow_text BOOLEAN DEFAULT FALSE',
         'enable_ai_upload_image': 'ALTER TABLE forward_rules ADD COLUMN enable_ai_upload_image BOOLEAN DEFAULT FALSE',
+        'target_topic_id': 'ALTER TABLE forward_rules ADD COLUMN target_topic_id INTEGER DEFAULT NULL',
     }
 
     keywords_new_columns = {
@@ -391,6 +394,20 @@ def migrate_db(engine):
                     logging.info(f'已添加列: {column}')
                 except Exception as e:
                     logging.error(f'添加列 {column} 时出错: {str(e)}')
+
+        # 添加media_types表的列（与 forward_rules/keywords 补列同一段）
+        if 'media_types' in existing_tables:
+            media_types_columns = {column['name'] for column in inspector.get_columns('media_types')}
+            media_types_new_columns = {
+                'sticker': 'ALTER TABLE media_types ADD COLUMN sticker BOOLEAN DEFAULT FALSE',
+            }
+            for column, sql in media_types_new_columns.items():
+                if column not in media_types_columns:
+                    try:
+                        connection.execute(text(sql))
+                        logging.info(f'已添加media_types.{column}列')
+                    except Exception as e:
+                        logging.error(f'添加media_types.{column}列时出错: {str(e)}')
 
         #先检查forward_rules表的列的forward_mode是否存在
         if 'forward_mode' not in forward_rules_columns:

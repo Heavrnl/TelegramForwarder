@@ -4,7 +4,13 @@ from managers.state_manager import state_manager
 import asyncio
 from telethon.tl import types
 
-from handlers.button.button_helpers import create_ai_settings_buttons, create_model_buttons, create_summary_time_buttons
+from handlers.button.button_helpers import (
+    SUMMARY_NOW_RANGES,
+    create_ai_settings_buttons,
+    create_model_buttons,
+    create_summary_now_range_buttons,
+    create_summary_time_buttons,
+)
 from models.models import ForwardRule, RuleSync
 from telethon import Button
 import logging
@@ -14,6 +20,13 @@ from scheduler.summary_scheduler import SummaryScheduler
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_summary_now_range(range_value):
+    for label, value, hours in SUMMARY_NOW_RANGES:
+        if value == range_value:
+            return label, hours
+    return None
 
 
 async def callback_ai_settings(event, rule_id, session, message, data):
@@ -334,38 +347,86 @@ async def callback_cancel_set_summary(event, rule_id, session, message, data):
     return
 
 async def callback_summary_now(event, rule_id, session, message, data):
-    # 处理立即执行总结的回调
-    logger.info(f"处理立即执行总结回调 - rule_id: {rule_id}")
-    
+    # 处理立即执行总结的回溯范围选择
+    logger.info(f"处理立即执行总结范围选择回调 - rule_id: {rule_id}")
+
     try:
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
             await event.answer("规则不存在")
             return
-        
+
+        await event.edit(
+            "请选择立即总结的回溯范围：",
+            buttons=await create_summary_now_range_buttons(rule_id)
+        )
+    except Exception as e:
+        logger.error(f"处理立即总结范围选择时出错: {str(e)}")
+        logger.error(traceback.format_exc())
+        await event.answer(f"处理时出错: {str(e)}")
+    finally:
+        session.close()
+
+    return
+
+
+async def callback_summary_now_range(event, rule_id, session, message, data):
+    # 按选择的回溯范围立即执行总结
+    logger.info(f"处理立即执行总结范围回调 - data: {data}")
+
+    try:
+        parts = data.split(':', 2)
+        if len(parts) != 3:
+            await event.answer("回调数据格式错误")
+            return
+
+        _, rule_id_part, range_value = parts
+        range_option = _get_summary_now_range(range_value)
+        if not range_option:
+            await event.answer("未知的总结范围")
+            return
+
+        range_label, lookback_hours = range_option
+        rule = session.query(ForwardRule).get(int(rule_id_part))
+        if not rule:
+            await event.answer("规则不存在")
+            return
+
         main = await get_main_module()
         user_client = main.user_client
         bot_client = main.bot_client
 
         scheduler = SummaryScheduler(user_client, bot_client)
         await event.answer("开始执行总结，请稍候...")
-        
-        await message.edit(
-            f"正在为规则 {rule_id}（{rule.source_chat.name} -> {rule.target_chat.name}）生成总结...\n"
-            f"处理需要一定时间，请耐心等待。",
-            buttons=[[Button.inline("返回", f"ai_settings:{rule_id}")]]
+
+        range_text = (
+            "按总结时间生成总结"
+            if lookback_hours is None
+            else f"生成最近 {lookback_hours} 小时总结"
         )
-        
+
+        await message.edit(
+            f"正在为规则 {rule_id_part}（{rule.source_chat.name} -> {rule.target_chat.name}）{range_text}...\n"
+            f"处理需要一定时间，请耐心等待。",
+            buttons=[[Button.inline("返回", f"ai_settings:{rule_id_part}")]]
+        )
+
         try:
             # 执行总结任务
-            await asyncio.create_task(scheduler._execute_summary(rule.id,is_now=True))
-            logger.info(f"已启动规则 {rule_id} 的立即总结任务")
+            await asyncio.create_task(
+                scheduler._execute_summary(
+                    rule.id,
+                    is_now=True,
+                    lookback_hours=lookback_hours
+                )
+            )
+            logger.info(f"已启动规则 {rule_id_part} 的立即总结任务，范围: {range_label}")
         except Exception as e:
             logger.error(f"执行总结任务失败: {str(e)}")
             logger.error(traceback.format_exc())
             await message.edit(
                 f"总结生成失败: {str(e)}",
-                buttons=[[Button.inline("返回", f"ai_settings:{rule_id}")]]
+                buttons=[[Button.inline("返回", f"ai_settings:{rule_id_part}")]]
             )
     except Exception as e:
         logger.error(f"处理总结时出错: {str(e)}")

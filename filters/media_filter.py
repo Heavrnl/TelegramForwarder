@@ -1,6 +1,7 @@
 import logging
 import os
 import asyncio
+from telethon.tl.types import DocumentAttributeSticker
 from utils.media import get_media_size
 from utils.constants import TEMP_DIR
 from filters.base_filter import BaseFilter
@@ -252,7 +253,14 @@ class MediaFilter(BaseFilter):
             # 记录这是纯链接预览消息
             context.is_pure_link_preview = True
             logger.info('这是一条纯链接预览消息')
-            
+
+    def _is_sticker(self, media):
+        doc = getattr(media, 'document', None)
+        attributes = getattr(doc, 'attributes', None) if doc else None
+        if not attributes:
+            return False
+        return any(isinstance(attr, DocumentAttributeSticker) for attr in attributes)
+
     async def _is_media_type_blocked(self, media, media_types):
         """
         检查媒体类型是否被屏蔽
@@ -267,6 +275,10 @@ class MediaFilter(BaseFilter):
         # 检查各种媒体类型
         if getattr(media, 'photo', None) and media_types.photo:
             logger.info('媒体类型为图片，已被屏蔽')
+            return True
+
+        if getattr(media, 'document', None) and self._is_sticker(media) and getattr(media_types, 'sticker', False):
+            logger.info('媒体类型为贴纸，已被屏蔽')
             return True
         
         if getattr(media, 'document', None) and media_types.document:
@@ -360,4 +372,3 @@ class MediaFilter(BaseFilter):
             session.close()
             
         return allowed
-

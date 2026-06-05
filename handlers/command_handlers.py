@@ -140,10 +140,20 @@ async def handle_bind_command(event, client, parts):
             if not target_chat_db.current_add_id:
                 target_chat_db.current_add_id = str(source_chat_entity.id)
 
+            target_topic_id = None
+            # 只有在目标聊天是当前聊天时，才尝试提取 Topic ID
+            if not target_chat_input or str(current_chat.id) == str(target_chat_entity.id):
+                try:
+                    target_topic_id = extract_topic_id(event.message)
+                except Exception as e:
+                    logger.warning(f'提取目标Topic ID时出错: {str(e)}')
+                    target_topic_id = None
+
             # 创建转发规则
             rule = ForwardRule(
                 source_chat_id=source_chat_db.id,
-                target_chat_id=target_chat_db.id
+                target_chat_id=target_chat_db.id,
+                target_topic_id=target_topic_id
             )
             
             # 如果是绑定自己，则默认使用白名单模式
@@ -155,10 +165,12 @@ async def handle_bind_command(event, client, parts):
             session.commit()
 
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
+
+            topic_info = f" | Topic: `{target_topic_id}`\n" if target_topic_id is not None else ""
             await reply_and_delete(event,
                 f'已设置转发规则:\n'
                 f'源聊天: {source_chat_db.name} ({source_chat_db.telegram_chat_id})\n'
-                f'目标聊天: {target_chat_db.name} ({target_chat_db.telegram_chat_id})\n'
+                f'目标聊天: {target_chat_db.name} ({target_chat_db.telegram_chat_id}){topic_info}\n'
                 f'请使用 /add 或 /add_regex 添加关键字',
                 buttons=[Button.inline("⚙️ 打开设置", f"rule_settings:{rule.id}")]
             )
@@ -170,7 +182,8 @@ async def handle_bind_command(event, client, parts):
                 f'已存在相同的转发规则:\n'
                 f'源聊天: {source_chat_db.name}\n'
                 f'目标聊天: {target_chat_db.name}\n'
-                f'如需修改请使用 /settings 命令'
+                f'如需修改请使用 /settings 命令\n'
+                f'如需绑定到某个 Topic，请先 /delete_rule 删除该规则，然后在目标群对应 Topic 内重新 /bind\n'
             )
             return
         finally:
@@ -835,7 +848,10 @@ async def handle_help_command(event, command):
         "• 括号内为命令的简写形式\n"
         "• 尖括号 <> 表示必填参数\n"
         "• 方括号 [] 表示可选参数\n"
-        "• 导入命令需要同时发送文件"
+        "• 导入命令需要同时发送文件\n\n"
+        "🧵 **Topics(线程)提示**\n"
+        "• 想把消息转发到某个 Topic：必须在目标群对应 Topic 内首次执行 /bind 创建规则\n"
+        "• 规则创建后暂不支持修改 Topic：请先删除规则，再在正确的 Topic 内重新 /bind"
     )
 
     await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
@@ -1670,7 +1686,7 @@ async def handle_copy_rule_command(event, command):
         for column in inspector.columns:
             column_name = column.key
             if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_chat', 'target_chat',
-                                      'keywords', 'replace_rules', 'media_types']:
+                                      'target_topic_id', 'keywords', 'replace_rules', 'media_types']:
                 # 获取源规则的值并设置到目标规则
                 value = getattr(source_rule, column_name)
                 setattr(target_rule, column_name, value)
@@ -2065,12 +2081,14 @@ async def handle_list_rule_command(event, command, parts):
             # 获取源聊天和目标聊天的名称
             source_chat = rule.source_chat
             target_chat = rule.target_chat
+            topic_id = getattr(rule, 'target_topic_id', None)
+            topic_info = f" | Topic: `{topic_id}`\n" if topic_id is not None else ""
 
             # 构建规则描述
             rule_desc = (
                 f'<b>ID: {rule.id}</b>\n'
                 f'<blockquote>来源: {source_chat.name} ({source_chat.telegram_chat_id})\n'
-                f'目标: {target_chat.name} ({target_chat.telegram_chat_id})\n'
+                f'目标: {target_chat.name} ({target_chat.telegram_chat_id}){topic_info}'
                 '</blockquote>'
             )
             message_parts.append(rule_desc)

@@ -141,7 +141,7 @@ async def callback_toggle_media_type(event, rule_id, session, message, data):
         rule_id = parts[1]  
         media_type = parts[2]  
         # 检查媒体类型是否有效
-        if media_type not in ['photo', 'document', 'video', 'audio', 'voice']:
+        if media_type not in ['photo', 'document', 'video', 'audio', 'voice', 'sticker']:
             await event.answer(f"无效的媒体类型: {media_type}")
             return
             

@@ -6,11 +6,66 @@ from telethon.errors import FloodWaitError
 
 logger = logging.getLogger(__name__)
 
+_TOPIC_REPLY_ERROR_TOKENS = (
+    "MSG_ID_INVALID",
+    "MESSAGE_ID_INVALID",
+    "REPLY_MESSAGE_ID_INVALID",
+    "TOPIC_DELETED",
+    "TOPIC_CLOSED",
+    "THREAD_ID_INVALID",
+    "TOPIC_ID_INVALID",
+)
+
+def _is_topic_reply_error(exc):
+    text = f"{type(exc).__name__} {exc}".upper()
+    normalized = text.replace("_", "")
+    for token in _TOPIC_REPLY_ERROR_TOKENS:
+        if token in text:
+            return True
+        if token.replace("_", "") in normalized:
+            return True
+    return False
+
+
 class SenderFilter(BaseFilter):
     """
     消息发送过滤器，用于发送处理后的消息
     """
     
+    async def _send_message_with_topic_retry(self, client, rule, target_chat_id, *args, **kwargs):
+        topic_id = getattr(rule, 'target_topic_id', None)
+        reply_to = topic_id
+        if reply_to is None:
+            return await client.send_message(target_chat_id, *args, **kwargs)
+
+        try:
+            return await client.send_message(target_chat_id, *args, reply_to=reply_to, **kwargs)
+        except Exception as e:
+            if _is_topic_reply_error(e):
+                logger.warning(
+                    f'发送消息到Topic失败，降级到主聊天重试 (rule_id={rule.id}, '
+                    f'target_chat_id={target_chat_id}, topic_id={topic_id}, error={str(e)})'
+                )
+                return await client.send_message(target_chat_id, *args, **kwargs)
+            raise
+
+    async def _send_file_with_topic_retry(self, client, rule, target_chat_id, *args, **kwargs):
+        topic_id = getattr(rule, 'target_topic_id', None)
+        reply_to = topic_id
+        if reply_to is None:
+            return await client.send_file(target_chat_id, *args, **kwargs)
+
+        try:
+            return await client.send_file(target_chat_id, *args, reply_to=reply_to, **kwargs)
+        except Exception as e:
+            if _is_topic_reply_error(e):
+                logger.warning(
+                    f'发送文件到Topic失败，降级到主聊天重试 (rule_id={rule.id}, '
+                    f'target_chat_id={target_chat_id}, topic_id={topic_id}, error={str(e)})'
+                )
+                return await client.send_file(target_chat_id, *args, **kwargs)
+            raise
+
     async def _process(self, context):
         """
         发送处理后的消息
@@ -159,7 +214,9 @@ class SenderFilter(BaseFilter):
                 caption_text += context.time_info + context.original_link
                 
                 # 作为一个组发送所有文件
-                sent_messages = await client.send_file(
+                sent_messages = await self._send_file_with_topic_retry(
+                    client,
+                    rule,
                     target_chat_id,
                     files,
                     caption=caption_text,
@@ -214,7 +271,9 @@ class SenderFilter(BaseFilter):
             
             text_to_send += original_link
                 
-            await client.send_message(
+            await self._send_message_with_topic_retry(
+                client,
+                rule,
                 target_chat_id,
                 text_to_send,
                 parse_mode=parse_mode,
@@ -238,7 +297,9 @@ class SenderFilter(BaseFilter):
                     context.original_link
                 )
                 
-                await client.send_file(
+                await self._send_file_with_topic_retry(
+                    client,
+                    rule,
                     target_chat_id,
                     file_path,
                     caption=caption,
@@ -284,7 +345,9 @@ class SenderFilter(BaseFilter):
         # 组合消息文本
         message_text = context.sender_info + context.message_text + context.time_info + context.original_link
         
-        await client.send_message(
+        await self._send_message_with_topic_retry(
+            client,
+            rule,
             target_chat_id,
             str(message_text),
             parse_mode=parse_mode,

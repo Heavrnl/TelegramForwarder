@@ -654,6 +654,7 @@ CALLBACK_HANDLERS = {
     'cancel_set_prompt': callback_cancel_set_prompt,
     'cancel_set_summary': callback_cancel_set_summary,
     'summary_now':callback_summary_now,
+    'summary_now_range': callback_summary_now_range,
     # 媒体设置
     'select_max_media_size': callback_select_max_media_size,
     'set_max_media_size': callback_set_max_media_size,

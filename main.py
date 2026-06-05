@@ -59,10 +59,21 @@ def clear_temp_dir():
     for file in os.listdir('./temp'):
         os.remove(os.path.join('./temp', file))
 
+proxy = None
+proxy_type = os.getenv('PROXY_TYPE')
+if proxy_type and proxy_type.lower() != 'none':
+    proxy_host = os.getenv('PROXY_HOST')
+    proxy_port = os.getenv('PROXY_PORT')
+    if not proxy_host or not proxy_port:
+        logger.error("代理配置不完整，缺少 PROXY_HOST 或 PROXY_PORT")
+        raise ValueError("代理配置不完整，缺少 PROXY_HOST 或 PROXY_PORT")
+    proxy_username = os.getenv('PROXY_USERNAME', '')
+    proxy_password = os.getenv('PROXY_PASSWORD', '')
+    proxy = (proxy_type, proxy_host, int(proxy_port), True, proxy_username, proxy_password)
 
 # 创建客户端
-user_client = TelegramClient('./sessions/user', api_id, api_hash)
-bot_client = TelegramClient('./sessions/bot', api_id, api_hash)
+user_client = TelegramClient('./sessions/user', api_id, api_hash, proxy=proxy)
+bot_client = TelegramClient('./sessions/bot', api_id, api_hash, proxy=proxy)
 
 # 初始化数据库
 engine = init_db()

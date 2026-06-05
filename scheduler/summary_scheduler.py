@@ -123,7 +123,7 @@ class SummaryScheduler:
 
         return next_time
 
-    async def _execute_summary(self, rule_id, is_now=False):
+    async def _execute_summary(self, rule_id, is_now=False, lookback_hours=None):
         """执行单个规则的总结任务"""
         session = get_session()
         try:
@@ -140,18 +140,21 @@ class SummaryScheduler:
 
                 # 计算时间范围
                 now = datetime.now(self.timezone)
-                summary_hour, summary_minute = map(int, rule.summary_time.split(':'))
-
                 # 设置结束时间为当前时间
                 end_time = now
 
-                # 设置开始时间为前一天的总结时间
-                start_time = now.replace(
-                    hour=summary_hour,
-                    minute=summary_minute,
-                    second=0,
-                    microsecond=0
-                ) - timedelta(days=1)
+                if lookback_hours is not None:
+                    start_time = now - timedelta(hours=lookback_hours)
+                else:
+                    summary_hour, summary_minute = map(int, rule.summary_time.split(':'))
+
+                    # 设置开始时间为前一天的总结时间
+                    start_time = now.replace(
+                        hour=summary_hour,
+                        minute=summary_minute,
+                        second=0,
+                        microsecond=0
+                    ) - timedelta(days=1)
 
                 logger.info(f'规则 {rule_id} 获取消息时间范围: {start_time} 到 {end_time}')
 
