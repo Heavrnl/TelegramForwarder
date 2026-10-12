@@ -4,7 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# 默认AI模型配置(JSON格式)
+# Default AI model configuration (JSON format)
 AI_MODELS_CONFIG = {
     "openai": [
         "gpt-4o",
@@ -73,7 +73,7 @@ AI_MODELS_CONFIG = {
     ]
 }
 
-# 汇总时间列表
+# Summary times list
 SUMMARY_TIMES_CONTENT = """00:00
 00:30
 01:00
@@ -124,7 +124,7 @@ SUMMARY_TIMES_CONTENT = """00:00
 23:30
 23:50"""
 
-# 延迟时间列表
+# Delay times list
 DELAY_TIMES_CONTENT = """1
 2
 3
@@ -136,7 +136,7 @@ DELAY_TIMES_CONTENT = """1
 9
 10"""
 
-# 最大媒体大小列表
+# Maximum media size list
 MAX_MEDIA_SIZE_CONTENT = """1
 2
 3
@@ -186,7 +186,7 @@ MAX_MEDIA_SIZE_CONTENT = """1
 2048
 """
 
-MEDIA_EXTENSIONS_CONTENT = """无扩展名
+MEDIA_EXTENSIONS_CONTENT = """no extension
 jpg
 jpeg
 png
@@ -250,11 +250,11 @@ py
 
 
 def create_default_configs():
-    """创建默认配置文件"""
+    """Create default configuration files."""
     config_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'config')
     os.makedirs(config_dir, exist_ok=True)
 
-    # 定义默认配置内容
+    # Define default config content
     default_configs = {
         'summary_times.txt': SUMMARY_TIMES_CONTENT,
         'delay_times.txt': DELAY_TIMES_CONTENT,
@@ -262,15 +262,15 @@ def create_default_configs():
         'media_extensions.txt': MEDIA_EXTENSIONS_CONTENT,
     }
 
-    # 检查并创建每个配置文件
+    # Check and create each config file
     for filename, content in default_configs.items():
         file_path = os.path.join(config_dir, filename)
         if not os.path.exists(file_path):
             with open(file_path, 'w', encoding='utf-8') as f:
                 f.write(content.strip())
             logger.info(f"Created {filename}")
-    
-    # 创建JSON格式的AI模型配置文件
+
+    # Create the JSON AI model config file
     json_config_path = os.path.join(config_dir, 'ai_models.json')
     if not os.path.exists(json_config_path):
         try:
@@ -278,4 +278,4 @@ def create_default_configs():
                 json.dump(AI_MODELS_CONFIG, f, ensure_ascii=False, indent=4)
             logger.info("Created ai_models.json")
         except Exception as e:
-            logger.error(f"创建 ai_models.json 失败: {e}") 
+            logger.error(f"Failed to create ai_models.json: {e}")

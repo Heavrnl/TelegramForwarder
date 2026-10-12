@@ -13,19 +13,19 @@ DELAY_TIMES = load_delay_times()
 MEDIA_SIZE = load_max_media_size()
 MEDIA_EXTENSIONS = load_media_extensions()
 async def create_ai_settings_buttons(rule=None,rule_id=None):
-    """创建 AI 设置按钮"""
+    """Create AI settings buttons"""
     buttons = []
 
-    # 添加 AI 设置按钮
+    # Add AI settings buttons
     for field, config in AI_SETTINGS.items():
-        # 非属性的项
+        # Non-attribute items
         if field == 'summary_now':
             display_value = config['display_name']
             callback_data = f"{config['toggle_action']}:{rule.id}"
             buttons.append([Button.inline(display_value, callback_data)])
             continue
             
-        # 特殊处理提示词设置    
+        # Special handling for prompt settings    
         if field == 'ai_prompt' or field == 'summary_prompt':
             display_value = config['display_name']
             callback_data = f"{config['toggle_action']}:{rule.id}"
@@ -42,20 +42,20 @@ async def create_ai_settings_buttons(rule=None,rule_id=None):
         callback_data = f"{config['toggle_action']}:{rule.id}"
         buttons.append([Button.inline(button_text, callback_data)])
 
-    # 添加返回按钮
+    # Add back button
     buttons.append([
-        Button.inline('👈 返回', f"rule_settings:{rule.id}"),
-        Button.inline('❌ 关闭', "close_settings")
+        Button.inline('👈 Back', f"rule_settings:{rule.id}"),
+        Button.inline('❌ Close', "close_settings")
     ])
     
     return buttons
 
 async def create_media_settings_buttons(rule=None,rule_id=None):
-    """创建媒体设置按钮"""
+    """Create media settings buttons"""
     buttons = []
 
     for field, config in MEDIA_SETTINGS.items():
-        # 特殊处理selected_media_types字段，因为它已经移动到单独的表中
+        # Special handling for selected_media_types field (moved to separate table)
         if field == 'selected_media_types':
             display_value = f"{config['display_name']}"
             callback_data = f"{config['toggle_action']}:{rule.id}"
@@ -85,16 +85,16 @@ async def create_media_settings_buttons(rule=None,rule_id=None):
         callback_data = f"{config['toggle_action']}:{rule.id}"
         buttons.append([Button.inline(button_text, callback_data)])
     
-    # 添加返回按钮
+    # Add back button
     buttons.append([
-        Button.inline('👈 返回', f"rule_settings:{rule.id}"),
-        Button.inline('❌ 关闭', "close_settings")
+        Button.inline('👈 Back', f"rule_settings:{rule.id}"),
+        Button.inline('❌ Close', "close_settings")
     ])
 
     return buttons
 
 async def create_other_settings_buttons(rule=None,rule_id=None):
-    """创建其他设置按钮"""
+    """Create other settings buttons"""
     buttons = []
     
     if rule_id is None:
@@ -120,42 +120,42 @@ async def create_other_settings_buttons(rule=None,rule_id=None):
                 buttons.append(current_row)
                 current_row = []
         else:
-            # 其他按钮单独一行
+            # Other buttons get their own row
             display_value = f"{config['display_name']}"
             callback_data = f"{config['toggle_action']}:{rule_id}"
             buttons.append([Button.inline(display_value, callback_data)])
 
-    # 添加返回按钮
+    # Add back button
     buttons.append([
-        Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-        Button.inline('❌ 关闭', "close_settings")
+        Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+        Button.inline('❌ Close', "close_settings")
     ])
 
     return buttons
 
 
 async def create_list_buttons(total_pages, current_page, command):
-    """创建分页按钮"""
+    """Create pagination buttons"""
     buttons = []
     row = []
 
-    # 上一页按钮
+    # Previous page button
     if current_page > 1:
         row.append(Button.inline(
-            '⬅️ 上一页',
+            '⬅️ Prev',
             f'page:{current_page-1}:{command}'
         ))
 
-    # 页码显示
+    # Page number display
     row.append(Button.inline(
         f'{current_page}/{total_pages}',
-        'noop:0'  # 空操作
+        'noop:0'  # no-op
     ))
 
-    # 下一页按钮
+    # Next page button
     if current_page < total_pages:
         row.append(Button.inline(
-            '下一页 ➡️',
+            'Next ➡️',
             f'page:{current_page+1}:{command}'
         ))
 
@@ -165,46 +165,46 @@ async def create_list_buttons(total_pages, current_page, command):
 
 
 
-# 添加模型选择按钮创建函数
+# Model selection button creation function
 async def create_model_buttons(rule_id, page=0):
-    """创建模型选择按钮，支持分页
+    """Create model selection buttons with pagination.
 
     Args:
-        rule_id: 规则ID
-        page: 当前页码（从0开始）
+        rule_id: Rule ID
+        page: Current page (0-indexed)
     """
     buttons = []
     total_models = len(AI_MODELS)
     total_pages = (total_models + MODELS_PER_PAGE - 1) // MODELS_PER_PAGE
 
-    # 计算当前页的模型范围
+    # Calculate model range for current page
     start_idx = page * MODELS_PER_PAGE
     end_idx = min(start_idx + MODELS_PER_PAGE, total_models)
 
-    # 添加模型按钮
+    # Add model buttons
     for model in AI_MODELS[start_idx:end_idx]:
         buttons.append([Button.inline(f"{model}", f"select_model:{rule_id}:{model}")])
 
-    # 添加导航按钮
+    # Add navigation buttons
     nav_buttons = []
-    if page > 0:  # 不是第一页，显示"上一页"
-        nav_buttons.append(Button.inline("⬅️ 上一页", f"model_page:{rule_id}:{page - 1}"))
-    # 添加页码显示在中间
+    if page > 0:  # Not first page, show Prev
+        nav_buttons.append(Button.inline("⬅️ Prev", f"model_page:{rule_id}:{page - 1}"))
+    # Show page number in center
     nav_buttons.append(Button.inline(f"{page + 1}/{total_pages}", f"noop:{rule_id}"))
-    if page < total_pages - 1:  # 不是最后一页，显示"下一页"
-        nav_buttons.append(Button.inline("下一页 ➡️", f"model_page:{rule_id}:{page + 1}"))
+    if page < total_pages - 1:  # Not last page, show Next
+        nav_buttons.append(Button.inline("Next ➡️", f"model_page:{rule_id}:{page + 1}"))
     if nav_buttons:
         buttons.append(nav_buttons)
 
-    # 添加返回按钮
-    buttons.append([Button.inline("返回", f"rule_settings:{rule_id}")])
+    # Add back button
+    buttons.append([Button.inline("Back", f"rule_settings:{rule_id}")])
 
     return buttons
 
 
 async def create_summary_time_buttons(rule_id, page=0):
-    """创建时间选择按钮"""
-    # 从环境变量获取布局设置
+    """Create time selection buttons"""
+    # Get layout settings from environment variables
     rows = SUMMARY_TIME_ROWS
     cols = SUMMARY_TIME_COLS
     times_per_page = rows * cols
@@ -214,11 +214,11 @@ async def create_summary_time_buttons(rule_id, page=0):
     start_idx = page * times_per_page
     end_idx = min(start_idx + times_per_page, total_times)
 
-    # 检查是否是频道消息
+    # Check if channel message
     buttons = []
     total_times = len(SUMMARY_TIMES)
 
-    # 添加时间按钮
+    # Add time buttons
     current_row = []
     for i, time in enumerate(SUMMARY_TIMES[start_idx:end_idx], start=1):
         current_row.append(Button.inline(
@@ -226,20 +226,20 @@ async def create_summary_time_buttons(rule_id, page=0):
             f"select_time:{rule_id}:{time}"
         ))
 
-        # 当达到每行的列数时，添加当前行并重置
+        # When row is full, append and reset
         if i % cols == 0:
             buttons.append(current_row)
             current_row = []
 
-    # 添加最后一个不完整的行
+    # Append any remaining partial row
     if current_row:
         buttons.append(current_row)
 
-    # 添加导航按钮
+    # Add navigation buttons
     nav_buttons = []
     if page > 0:
         nav_buttons.append(Button.inline(
-            "⬅️ 上一页",
+            "⬅️ Prev",
             f"time_page:{rule_id}:{page - 1}"
         ))
 
@@ -250,22 +250,22 @@ async def create_summary_time_buttons(rule_id, page=0):
 
     if end_idx < total_times:
         nav_buttons.append(Button.inline(
-            "下一页 ➡️",
+            "Next ➡️",
             f"time_page:{rule_id}:{page + 1}"
         ))
 
     buttons.append(nav_buttons)
     buttons.append([
-            Button.inline('👈 返回', f"ai_settings:{rule_id}"),
-            Button.inline('❌ 关闭', "close_settings")
+            Button.inline('👈 Back', f"ai_settings:{rule_id}"),
+            Button.inline('❌ Close', "close_settings")
         ])
 
     return buttons
 
 
 async def create_media_size_buttons(rule_id, page=0):
-    """创建媒体大小选择按钮"""
-    # 从环境变量获取布局设置
+    """Create media size selection buttons"""
+    # Get layout settings from environment variables
     rows = MEDIA_SIZE_ROWS
     cols = MEDIA_SIZE_COLS
     size_select_per_page = rows * cols
@@ -275,11 +275,11 @@ async def create_media_size_buttons(rule_id, page=0):
     start_idx = page * size_select_per_page
     end_idx = min(start_idx + size_select_per_page, total_size)
 
-    # 检查是否是频道消息
+    # Check if channel message
     buttons = []
     total_size = len(MEDIA_SIZE)
 
-    # 添加媒体大小按钮
+    # Add media size buttons
     current_row = []
     for i, size in enumerate(MEDIA_SIZE[start_idx:end_idx], start=1):
         current_row.append(Button.inline(
@@ -287,20 +287,20 @@ async def create_media_size_buttons(rule_id, page=0):
             f"select_max_media_size:{rule_id}:{size}"
         ))
 
-        # 当达到每行的列数时，添加当前行并重置
+        # When row is full, append and reset
         if i % cols == 0:
             buttons.append(current_row)
             current_row = []
 
-    # 添加最后一个不完整的行
+    # Append any remaining partial row
     if current_row:
         buttons.append(current_row)
 
-    # 添加导航按钮
+    # Add navigation buttons
     nav_buttons = []
     if page > 0:
         nav_buttons.append(Button.inline(
-            "⬅️ 上一页",
+            "⬅️ Prev",
             f"media_size_page:{rule_id}:{page - 1}"
         ))
 
@@ -311,22 +311,22 @@ async def create_media_size_buttons(rule_id, page=0):
 
     if end_idx < total_size:
         nav_buttons.append(Button.inline(
-            "下一页 ➡️",
+            "Next ➡️",
             f"media_size_page:{rule_id}:{page + 1}"
         ))
 
     buttons.append(nav_buttons)
 
     buttons.append([
-            Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-            Button.inline('❌ 关闭', "close_settings")
+            Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+            Button.inline('❌ Close', "close_settings")
         ])
 
     return buttons
 
 async def create_delay_time_buttons(rule_id, page=0):
-    """创建延迟时间选择按钮"""
-    # 从环境变量获取布局设置
+    """Create delay time selection buttons"""
+    # Get layout settings from environment variables
     rows = DELAY_TIME_ROWS
     cols = DELAY_TIME_COLS
 
@@ -337,11 +337,11 @@ async def create_delay_time_buttons(rule_id, page=0):
     start_idx = page * times_per_page
     end_idx = min(start_idx + times_per_page, total_times)
 
-    # 检查是否是频道消息
+    # Check if channel message
     buttons = []
     total_times = len(DELAY_TIMES)
 
-    # 添加时间按钮
+    # Add time buttons
     current_row = []
     for i, time in enumerate(DELAY_TIMES[start_idx:end_idx], start=1):
         current_row.append(Button.inline(
@@ -349,20 +349,20 @@ async def create_delay_time_buttons(rule_id, page=0):
             f"select_delay_time:{rule_id}:{time}"
         ))
 
-        # 当达到每行的列数时，添加当前行并重置
+        # When row is full, append and reset
         if i % cols == 0:
             buttons.append(current_row)
             current_row = []
 
-    # 添加最后一个不完整的行
+    # Append any remaining partial row
     if current_row:
         buttons.append(current_row)
 
-    # 添加导航按钮
+    # Add navigation buttons
     nav_buttons = []
     if page > 0:
         nav_buttons.append(Button.inline(
-            "⬅️ 上一页",
+            "⬅️ Prev",
             f"delay_time_page:{rule_id}:{page - 1}"
         ))
 
@@ -373,51 +373,51 @@ async def create_delay_time_buttons(rule_id, page=0):
 
     if end_idx < total_times:
         nav_buttons.append(Button.inline(
-            "下一页 ➡️",
+            "Next ➡️",
             f"delay_time_page:{rule_id}:{page + 1}"
         ))
 
     buttons.append(nav_buttons)
 
     buttons.append([
-            Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-            Button.inline('❌ 关闭', "close_settings")
+            Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+            Button.inline('❌ Close', "close_settings")
         ])
 
     return buttons
 
 async def create_media_types_buttons(rule_id, media_types):
-    """创建媒体类型选择按钮
+    """Create media type selection buttons
     
     Args:
-        rule_id: 规则ID
-        media_types: MediaTypes对象
-    
+        rule_id: Rule ID
+        media_types: MediaTypes object
+
     Returns:
-        按钮列表
+        Button list
     """
     buttons = []
     
-    # 媒体类型按钮
+    # Media type buttons
     media_type_names = {
-        'photo': '📷 图片',
-        'document': '📄 文档',
-        'video': '🎬 视频',
-        'audio': '🎵 音频',
-        'voice': '🎤 语音'
+        'photo': '📷 Photo',
+        'document': '📄 Document',
+        'video': '🎬 Video',
+        'audio': '🎵 Audio',
+        'voice': '🎤 Voice'
     }
     
     for field, display_name in media_type_names.items():
-        # 获取当前值
+        # Get current value
         current_value = getattr(media_types, field, False)
-        # 如果为True，添加勾选标记
+        # If True, add checkmark
         button_text = f"{'✅ ' if current_value else ''}{display_name}"
         callback_data = f"toggle_media_type:{rule_id}:{field}"
         buttons.append([Button.inline(button_text, callback_data)])
     
     buttons.append([
-            Button.inline('👈 返回', f"media_settings:{rule_id}"),
-            Button.inline('❌ 关闭', "close_settings")
+            Button.inline('👈 Back', f"media_settings:{rule_id}"),
+            Button.inline('❌ Close', "close_settings")
         ])
     
     return buttons
@@ -425,16 +425,16 @@ async def create_media_types_buttons(rule_id, media_types):
 
 
 async def create_media_extensions_buttons(rule_id, page=0):
-    """创建媒体扩展名选择按钮
+    """Create media extension selection buttons
     
     Args:
-        rule_id: 规则ID
-        page: 当前页码
-    
+        rule_id: Rule ID
+        page: Current page
+
     Returns:
-        按钮列表
+        Button list
     """
-    # 从环境变量获取布局设置
+    # Get layout settings from environment variables
     rows = MEDIA_EXTENSIONS_ROWS
     cols = MEDIA_EXTENSIONS_COLS
     
@@ -445,51 +445,51 @@ async def create_media_extensions_buttons(rule_id, page=0):
     start_idx = page * extensions_per_page
     end_idx = min(start_idx + extensions_per_page, total_extensions)
     
-    # 获取当前规则已选择的扩展名
+    # Get currently selected extensions for this rule
     db_ops = await get_db_ops()
     session = get_session()
     selected_extensions = []
     try:
-        # 使用db_ops.get_media_extensions方法获取已选择的扩展名
+        # Fetch selected extensions via db_ops
         selected_extensions = await db_ops.get_media_extensions(session, rule_id)
         selected_extension_list = [ext["extension"] for ext in selected_extensions]
     
-        # 创建扩展名按钮
+        # Create extension buttons
         current_row = []
         for i in range(start_idx, end_idx):
             ext = MEDIA_EXTENSIONS[i]
-            # 检查是否已选择
+            # Check if already selected
             is_selected = ext in selected_extension_list
             button_text = f"{'✅ ' if is_selected else ''}{ext}"
-            # 在回调数据中包含页码信息
+            # Include page number in callback data
             callback_data = f"toggle_media_extension:{rule_id}:{ext}:{page}"
             
             current_row.append(Button.inline(button_text, callback_data))
             
-            # 每行放置cols个按钮
+            # Place cols buttons per row
             if len(current_row) == cols:
                 buttons.append(current_row)
                 current_row = []
         
-        # 添加剩余的按钮
+        # Append remaining buttons
         if current_row:
             buttons.append(current_row)
         
-        # 添加分页按钮
+        # Add pagination buttons
         page_buttons = []
         total_pages = (total_extensions + extensions_per_page - 1) // extensions_per_page
         
         if total_pages > 1:
-            # 上一页按钮
+            # Previous page button
             if page > 0:
                 page_buttons.append(Button.inline("⬅️", f"media_extensions_page:{rule_id}:{page-1}"))
             else:
                 page_buttons.append(Button.inline("⬅️", f"noop"))
             
-            # 页码指示
+            # Page indicator
             page_buttons.append(Button.inline(f"{page+1}/{total_pages}", f"noop"))
             
-            # 下一页按钮
+            # Next page button
             if page < total_pages - 1:
                 page_buttons.append(Button.inline("➡️", f"media_extensions_page:{rule_id}:{page+1}"))
             else:
@@ -500,8 +500,8 @@ async def create_media_extensions_buttons(rule_id, page=0):
         
 
         buttons.append([
-            Button.inline('👈 返回', f"media_settings:{rule_id}"),
-            Button.inline('❌ 关闭', "close_settings")
+            Button.inline('👈 Back', f"media_settings:{rule_id}"),
+            Button.inline('❌ Close', "close_settings")
         ])
     finally:
         session.close()
@@ -510,86 +510,86 @@ async def create_media_extensions_buttons(rule_id, page=0):
 
 
 async def create_sync_rule_buttons(rule_id, page=0):
-    """创建同步规则选择按钮
+    """Create sync rule selection buttons
     
     Args:
-        rule_id: 当前规则ID
-        page: 当前页码
-        
+        rule_id: Current rule ID
+        page: Current page
+
     Returns:
-        按钮列表
+        Button list
     """
-    # 设置分页参数
+    # Set pagination parameters
     
     buttons = []
     session = get_session()
     
     try:
-        # 获取当前规则
+        # Get current rule
         current_rule = session.query(ForwardRule).get(rule_id)
         if not current_rule:
-            buttons.append([Button.inline('❌ 规则不存在', 'noop')])
-            buttons.append([Button.inline('关闭', 'close_settings')])
+            buttons.append([Button.inline('❌ Rule not found', 'noop')])
+            buttons.append([Button.inline('Close', 'close_settings')])
             return buttons
         
-        # 获取所有规则（除了当前规则）
+        # Get all rules (except current rule)
         all_rules = session.query(ForwardRule).filter(
             ForwardRule.id != rule_id
         ).all()
         
-        # 计算分页
+        # Calculate pagination
         total_rules = len(all_rules)
         total_pages = (total_rules + RULES_PER_PAGE - 1) // RULES_PER_PAGE
         
         if total_rules == 0:
-            buttons.append([Button.inline('❌ 没有可用的规则', 'noop')])
+            buttons.append([Button.inline('❌ No rules available', 'noop')])
             buttons.append([
-                Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-                Button.inline('❌ 关闭', 'close_settings')
+                Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+                Button.inline('❌ Close', 'close_settings')
             ])
             return buttons
         
-        # 获取当前页的规则
+        # Get rules for current page
         start_idx = page * RULES_PER_PAGE
         end_idx = min(start_idx + RULES_PER_PAGE, total_rules)
         current_page_rules = all_rules[start_idx:end_idx]
         
-        # 获取当前规则的同步目标
+        # Get sync targets for current rule
         db_ops = await get_db_ops()
         sync_targets = await db_ops.get_rule_syncs(session, rule_id)
         synced_rule_ids = [sync.sync_rule_id for sync in sync_targets]
         
-        # 创建规则按钮
+        # Create rule buttons
         for rule in current_page_rules:
-            # 获取源聊天和目标聊天名称
+            # Get source and target chat names
             source_chat = rule.source_chat
             target_chat = rule.target_chat
             
-            # 检查是否已同步
+            # Check if already synced
             is_synced = rule.id in synced_rule_ids
             
-            # 创建按钮文本
+            # Build button text
             button_text = f"{'✅ ' if is_synced else ''}{rule.id} {source_chat.name}->{target_chat.name}"
             
-            # 创建回调数据：toggle_rule_sync:当前规则ID:目标规则ID:当前页码
+            # Build callback data: toggle_rule_sync:current_rule_id:target_rule_id:page
             callback_data = f"toggle_rule_sync:{rule_id}:{rule.id}:{page}"
             
             buttons.append([Button.inline(button_text, callback_data)])
         
-        # 添加分页按钮
+        # Add pagination buttons
         page_buttons = []
         
         if total_pages > 1:
-            # 上一页按钮
+            # Previous page button
             if page > 0:
                 page_buttons.append(Button.inline("⬅️", f"sync_rule_page:{rule_id}:{page-1}"))
             else:
                 page_buttons.append(Button.inline("⬅️", "noop"))
             
-            # 页码指示
+            # Page indicator
             page_buttons.append(Button.inline(f"{page+1}/{total_pages}", "noop"))
             
-            # 下一页按钮
+            # Next page button
             if page < total_pages - 1:
                 page_buttons.append(Button.inline("➡️", f"sync_rule_page:{rule_id}:{page+1}"))
             else:
@@ -598,10 +598,10 @@ async def create_sync_rule_buttons(rule_id, page=0):
         if page_buttons:
             buttons.append(page_buttons)
         
-        # 添加同步保存和返回按钮
+        # Add sync save and back buttons
         buttons.append([
-            Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-            Button.inline('❌ 关闭', 'close_settings')
+            Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+            Button.inline('❌ Close', 'close_settings')
         ])
     
     finally:
@@ -610,31 +610,31 @@ async def create_sync_rule_buttons(rule_id, page=0):
     return buttons
 
 async def create_push_settings_buttons(rule_id, page=0):
-    """创建推送设置按钮菜单，支持分页
+    """Create push settings button menu with pagination
     
     Args:
-        rule_id: 规则ID
-        page: 页码（从0开始）
-    
+        rule_id: Rule ID
+        page: Page number (0-indexed)
+
     Returns:
-        按钮列表
+        Button list
     """
     buttons = []
     configs_per_page = PUSH_CHANNEL_PER_PAGE
     
-    # 从数据库获取规则对象和推送配置
+    # Fetch rule object and push configs from database
     db_ops = await get_db_ops()
     session = get_session()
     try:
-        # 获取规则对象
+        # Get rule object
         rule = session.query(ForwardRule).get(rule_id)
         if not rule:
-            buttons.append([Button.inline("❌ 规则不存在", "noop")])
-            buttons.append([Button.inline("关闭", "close_settings")])
+            buttons.append([Button.inline("❌ Rule not found", "noop")])
+            buttons.append([Button.inline("Close", "close_settings")])
             return buttons
         
         
-        # 添加"启用推送"按钮
+        # Add "Enable push" button
         buttons.append([
             Button.inline(
                 f"{'✅ ' if rule.enable_push else ''}{PUSH_SETTINGS['enable_push_channel']['display_name']}", 
@@ -642,7 +642,7 @@ async def create_push_settings_buttons(rule_id, page=0):
             )
         ])
         
-        # 添加"只转发到推送配置"按钮
+        # Add "Forward to push only" button
         buttons.append([
             Button.inline(
                 f"{'✅ ' if rule.enable_only_push else ''}{PUSH_SETTINGS['enable_only_push']['display_name']}", 
@@ -650,7 +650,7 @@ async def create_push_settings_buttons(rule_id, page=0):
             )
         ])
         
-        # 添加"添加推送配置"按钮
+        # Add "Add push config" button
         buttons.append([
             Button.inline(
                 PUSH_SETTINGS['add_push_channel']['display_name'],
@@ -658,39 +658,39 @@ async def create_push_settings_buttons(rule_id, page=0):
             )
         ])
         
-        # 获取当前规则的所有推送配置
+        # Get all push configs for current rule
         push_configs = await db_ops.get_push_configs(session, rule_id)
         
-        # 计算总页数
+        # Calculate total pages
         total_configs = len(push_configs)
         total_pages = (total_configs + configs_per_page - 1) // configs_per_page
         
-        # 计算当前页的范围
+        # Calculate range for current page
         start_idx = page * configs_per_page
         end_idx = min(start_idx + configs_per_page, total_configs)
         
-        # 为每个推送配置创建按钮（仅当前页）
+        # Create buttons for each push config (current page only)
         for config in push_configs[start_idx:end_idx]:
-            # 取前20个字符
+            # Truncate to 25 chars
             display_name = config.push_channel[:25] + ('...' if len(config.push_channel) > 25 else '')
             button_text = display_name
-            # 创建按钮
+            # Create button
             buttons.append([Button.inline(button_text, f"toggle_push_config:{config.id}")])
         
-        # 添加分页按钮（如果需要）
+        # Add pagination buttons if needed
         if total_pages > 1:
             nav_buttons = []
             
-            # 上一页按钮
+            # Previous page button
             if page > 0:
                 nav_buttons.append(Button.inline("⬅️", f"push_page:{rule_id}:{page-1}"))
             else:
                 nav_buttons.append(Button.inline("⬅️", "noop"))
             
-            # 页码指示
+            # Page indicator
             nav_buttons.append(Button.inline(f"{page+1}/{total_pages}", "noop"))
             
-            # 下一页按钮
+            # Next page button
             if page < total_pages - 1:
                 nav_buttons.append(Button.inline("➡️", f"push_page:{rule_id}:{page+1}"))
             else:
@@ -701,63 +701,63 @@ async def create_push_settings_buttons(rule_id, page=0):
     finally:
         session.close()
     
-    # 添加返回和关闭按钮
+    # Add back and close buttons
     buttons.append([
-        Button.inline('👈 返回', f"rule_settings:{rule_id}"),
-        Button.inline('❌ 关闭', "close_settings")
+        Button.inline('👈 Back', f"rule_settings:{rule_id}"),
+        Button.inline('❌ Close', "close_settings")
     ])
     
     return buttons
 
 async def create_push_config_details_buttons(config_id):
-    """创建推送配置详情按钮
+    """Create push config detail buttons
     
     Args:
-        config_id: 推送配置ID
-    
+        config_id: Push config ID
+
     Returns:
-        按钮列表
+        Button list
     """
     buttons = []
     
-    # 从数据库获取推送配置
+    # Fetch push config from database
     session = get_session()
     try:
         from models.models import PushConfig
         
-        # 获取推送配置
+        # Get push config
         config = session.query(PushConfig).get(config_id)
         if not config:
-            buttons.append([Button.inline("❌ 推送配置不存在", "noop")])
-            buttons.append([Button.inline("关闭", "close_settings")])
+            buttons.append([Button.inline("❌ Push config not found", "noop")])
+            buttons.append([Button.inline("Close", "close_settings")])
             return buttons
         
-        # 添加启用/禁用按钮
+        # Add enable/disable button
         buttons.append([
             Button.inline(
-                f"{'✅ ' if config.enable_push_channel else ''}启用推送", 
+                f"{'✅ ' if config.enable_push_channel else ''}Enable push", 
                 f"toggle_push_config_status:{config_id}"
             )
         ])
         
-        # 添加媒体发送方式切换按钮
-        mode_text = "单个" if config.media_send_mode == "Single" else "全部"
+        # Add media send mode toggle button
+        mode_text = "Single" if config.media_send_mode == "Single" else "All"
         buttons.append([
             Button.inline(
-                f"📁 媒体发送方式: {mode_text}", 
+                f"📁 Media send mode: {mode_text}", 
                 f"toggle_media_send_mode:{config_id}"
             )
         ])
         
-        # 添加删除按钮
+        # Add delete button
         buttons.append([
-            Button.inline("🗑️ 删除推送配置", f"delete_push_config:{config_id}")
+            Button.inline("🗑️ Delete push config", f"delete_push_config:{config_id}")
         ])
         
-        # 添加返回按钮
+        # Add back button
         buttons.append([
-            Button.inline("👈 返回", f"push_settings:{config.rule_id}"),
-            Button.inline("❌ 关闭", "close_settings")
+            Button.inline("👈 Back", f"push_settings:{config.rule_id}"),
+            Button.inline("❌ Close", "close_settings")
         ])
         
     finally:

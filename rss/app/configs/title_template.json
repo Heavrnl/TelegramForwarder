@@ -2,39 +2,39 @@
     "patterns": [
       {
         "pattern": "^(?:#\\S+\\s*)+\\n\\s*\\n([^\\n]+)",
-        "description": "第一行全是标签后的标题：#标签1 #标签2\\n\\n标题内容"
+        "description": "Title after a line of hashtags: #tag1 #tag2\\n\\ntitle content"
       },
       {
         "pattern": "^#[^\\s]+\\s+\\*\\*([^\\*]+?)\\*\\*",
-        "description": "带标签的粗体标题：#标签 **标题**"
+        "description": "Bold title with hashtag: #tag **title**"
       },
       {
         "pattern": "^#[^\\s]+\\s+(.+?)(?=\\n|$)",
-        "description": "带标签的标题：#标签 标题内容"
+        "description": "Title with hashtag: #tag title content"
       },
       {
         "pattern": "^\\[\\*\\*([^\\*]+?)\\*\\*\\]\\([^\\)]+?\\)",
-        "description": "带链接的粗体标题：[**标题**](链接)"
+        "description": "Bold linked title: [**title**](url)"
       },
       {
         "pattern": "^\\[([^\\]]+?)\\]\\([^\\)]+?\\)",
-        "description": "带链接的标题：[标题](链接)"
+        "description": "Linked title: [title](url)"
       },
       {
         "pattern": "^\\*\\*([^\\*]+?)\\*\\*",
-        "description": "粗体标题：**标题**"
+        "description": "Bold title: **title**"
       },
       {
         "pattern": "^【([^】]+?)】",
-        "description": "中文方括号标题：【标题】"
+        "description": "CJK bracket title: 【title】"
       },
       {
         "pattern": "^\\[([^\\]]+?)\\]",
-        "description": "中括号标题：[标题]"
+        "description": "Bracket title: [title]"
       },
       {
         "pattern": "^(.+?)\\n",
-        "description": "第一行作为标题"
+        "description": "First line as title"
       }
     ]
-  } 
+  }

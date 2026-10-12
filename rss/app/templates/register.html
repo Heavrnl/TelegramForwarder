@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>创建用户 - TG Forwarder RSS</title>
+    <title>Create Account - TG Forwarder RSS</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,7 +14,7 @@
             align-items: center;
         }
         .card {
-            opacity: 0;  /* 初始设置为不可见 */
+            opacity: 0;  /* initially hidden */
             border: none;
             border-radius: 15px;
             box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
@@ -63,7 +63,7 @@
             padding: 20px;
         }
         .brand-logo {
-            opacity: 0;  /* 初始设置为不可见 */
+            opacity: 0;  /* initially hidden */
             text-align: center;
             margin-bottom: 30px;
         }
@@ -91,7 +91,7 @@
                 opacity: 1;
             }
         }
-        
+
         @keyframes slideUpSmall {
             from {
                 transform: translateY(20px);
@@ -102,11 +102,11 @@
                 opacity: 1;
             }
         }
-        
+
         .slide-down {
             animation: slideDownSmall 0.5s ease forwards;
         }
-        
+
         .slide-up {
             animation: slideUpSmall 0.5s ease forwards;
         }
@@ -116,7 +116,7 @@
         }
 
         form {
-            opacity: 0;  /* 初始设置为不可见 */
+            opacity: 0;  /* initially hidden */
         }
     </style>
 </head>
@@ -136,24 +136,24 @@
                     {% endif %}
                     <form method="post" action="/register" class="slide-up" style="animation-delay: 0.3s;" id="registerForm">
                         <div class="mb-4">
-                            <label for="username" class="form-label">用户名</label>
-                            <input type="text" class="form-control" id="username" name="username" required 
-                                   placeholder="请输入用户名" autocomplete="username">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required
+                                   placeholder="Enter your username" autocomplete="username">
                         </div>
                         <div class="mb-4">
-                            <label for="password" class="form-label">密码</label>
-                            <input type="password" class="form-control" id="password" name="password" required 
-                                   placeholder="请输入密码" autocomplete="new-password">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required
+                                   placeholder="Enter your password" autocomplete="new-password">
                             <div class="password-strength" id="passwordStrength"></div>
                         </div>
                         <div class="mb-4">
-                            <label for="confirm_password" class="form-label">确认密码</label>
-                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required 
-                                   placeholder="请再次输入密码" autocomplete="new-password">
+                            <label for="confirm_password" class="form-label">Confirm password</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required
+                                   placeholder="Re-enter your password" autocomplete="new-password">
                         </div>
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary" id="submitBtn">
-                                创建账号
+                                Create account
                             </button>
                         </div>
                     </form>
@@ -171,43 +171,43 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 等待页面完全加载后再开始动画
+        // Wait for the page to fully load before starting animations
         document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 const card = document.querySelector('.card');
                 const logo = document.querySelector('.brand-logo');
                 const form = document.querySelector('form');
 
-                // 按顺序播放动画
+                // Play animations in sequence
                 card.classList.add('fade-in');
-                
+
                 setTimeout(() => {
                     logo.classList.add('slide-down');
                 }, 200);
-                
+
                 setTimeout(() => {
                     form.classList.add('slide-up');
                 }, 300);
-            }, 100); // 给一个很短的延迟确保页面完全准备好
+            }, 100); // short delay to ensure page is fully ready
         });
 
-        // 密码强度检查
+        // Password strength check
         document.getElementById('password').addEventListener('input', function(e) {
             const password = e.target.value;
             const strength = checkPasswordStrength(password);
             const strengthBar = document.getElementById('passwordStrength');
-            
-            // 更新强度条的颜色和宽度
+
+            // Update strength bar color and width
             strengthBar.style.width = strength.score * 25 + '%';
             strengthBar.style.backgroundColor = strength.color;
         });
 
-        // 密码确认检查
+        // Password confirmation check
         document.getElementById('confirm_password').addEventListener('input', function(e) {
             const password = document.getElementById('password').value;
             const confirmPassword = e.target.value;
             const submitBtn = document.getElementById('submitBtn');
-            
+
             if (password === confirmPassword) {
                 e.target.style.borderColor = '#28a745';
                 submitBtn.disabled = false;
@@ -219,7 +219,7 @@
 
         function checkPasswordStrength(password) {
             let score = 0;
-            let color = '#dc3545'; // 默认红色
+            let color = '#dc3545'; // default red
 
             if (password.length >= 8) score++;
             if (password.match(/[a-z]/) && password.match(/[A-Z]/)) score++;
@@ -229,16 +229,16 @@
             switch(score) {
                 case 0:
                 case 1:
-                    color = '#dc3545'; // 红色
+                    color = '#dc3545'; // red
                     break;
                 case 2:
-                    color = '#ffc107'; // 黄色
+                    color = '#ffc107'; // yellow
                     break;
                 case 3:
-                    color = '#17a2b8'; // 蓝色
+                    color = '#17a2b8'; // blue
                     break;
                 case 4:
-                    color = '#28a745'; // 绿色
+                    color = '#28a745'; // green
                     break;
             }
 
@@ -246,4 +246,4 @@
         }
     </script>
 </body>
-</html> 
+</html>

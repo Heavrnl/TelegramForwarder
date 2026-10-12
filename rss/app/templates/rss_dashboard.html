@@ -1,17 +1,30 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>TG Forwarder RSS 管理</title>
+    <title>TG Forwarder RSS Dashboard</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Telegram Mini App SDK — must be first script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
+        /* Telegram theme integration — falls back to purple gradient in browser */
+        :root {
+            --tg-bg: var(--tg-theme-bg-color, transparent);
+            --tg-text: var(--tg-theme-text-color, #2c3e50);
+            --tg-hint: var(--tg-theme-hint-color, #6c757d);
+            --tg-link: var(--tg-theme-link-color, #667eea);
+            --tg-button: var(--tg-theme-button-color, #667eea);
+            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+            --tg-secondary-bg: var(--tg-theme-secondary-bg-color, rgba(255,255,255,0.15));
+        }
+
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: var(--tg-bg, linear-gradient(135deg, #667eea 0%, #764ba2 100%));
             min-height: 100vh;
-            color: #2c3e50;
+            color: var(--tg-text, #2c3e50);
         }
         
         .navbar {
@@ -88,7 +101,7 @@
             border: none !important;
         }
 
-        /* 重新设置各列宽度比例 */
+        /* Column width ratios */
         .table th:nth-child(1), 
         .table td:nth-child(1) {
             width: 5%;
@@ -202,7 +215,7 @@
             text-align: center;
         }
 
-        /* 为了保持表头和表格内容一致 */
+        /* Keep header and body cell styles consistent */
         .table thead th {
             background-color: rgba(118,75,162,0.1);
             color: #2c3e50;
@@ -212,7 +225,7 @@
             white-space: nowrap;
         }
 
-        /* 统一行中各项布局 */
+        /* Uniform cell layout within rows */
         .table tbody tr {
             border-bottom: 1px solid rgba(118,75,162,0.1);
         }
@@ -221,7 +234,7 @@
             border-bottom: none;
         }
 
-        /* 优化文本截断效果 */
+        /* Text truncation */
         .text-truncate {
             max-width: 95% !important;
             display: inline-block;
@@ -232,7 +245,7 @@
             text-overflow: ellipsis;
         }
 
-        /* 为名称和描述添加特殊样式 */
+        /* Name and description cell styles */
         .name-cell, .desc-cell {
             padding: 0.5rem 0.3rem !important;
             font-size: 0.9rem;
@@ -449,12 +462,12 @@
             transform: translateY(0);
         }
 
-        /* 移除表格底部的线条 */
+        /* Remove bottom table border */
         .card-body {
             /* padding-bottom: 0; */
         }
         
-        /* 移除可能的表格边框 */
+        /* Remove table borders */
         .table-striped {
             border: none !important;
         }
@@ -468,13 +481,13 @@
             border-bottom-color: rgba(118,75,162,0.1);
         }
         
-        /* 为卡片底部添加额外的内边距，维持整体平衡感 */
+        /* Card bottom padding for visual balance */
         .card {
             /* padding-bottom: 0.5rem; */
             padding-bottom: 0;
         }
 
-        /* 禁用状态的链接样式 */
+        /* Disabled link styles */
         .disabled-link {
             color: #a0aec0 !important;
             background: rgba(160, 174, 192, 0.1) !important;
@@ -488,13 +501,13 @@
             color: #a0aec0 !important;
         }
 
-        /* 确保折叠区域在展开时保持正确的样式 */
+        /* Collapsed region expanded styles */
         .collapse.show {
             background-color: rgba(255, 255, 255, 0.95);
             border-radius: 10px;
         }
         
-        /* 增强测试区域卡片样式 */
+        /* Regex test area card styles */
         #regexTestArea .card {
             background-color: rgba(255, 255, 255, 0.95) !important;
             border-radius: 10px;
@@ -526,16 +539,86 @@
             margin-bottom: 10px;
         }
         
-        /* 确保正则表达式结果区域样式正确 */
+        /* Regex test result area */
         #regex_test_result {
             background-color: #ffffff;
             border-radius: 8px;
             padding: 12px 15px;
         }
         
-        /* 应用按钮样式 */
+        /* Apply button */
         #apply_regex_btn {
             margin-top: 10px;
+        }
+
+        /* Mobile config cards (shown on small screens instead of the table) */
+        .config-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .config-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .config-card-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #2d3748;
+            flex: 1;
+            margin-right: 8px;
+        }
+        .config-card-meta {
+            font-size: 0.78rem;
+            color: #718096;
+            margin-bottom: 8px;
+        }
+        .config-card-url {
+            font-family: monospace;
+            font-size: 0.78rem;
+            background: rgba(66, 153, 225, 0.1);
+            color: #2c5282;
+            border-radius: 4px;
+            padding: 5px 8px;
+            margin-bottom: 10px;
+            word-break: break-all;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .config-card-url a { color: #2c5282; text-decoration: none; flex: 1; }
+        .config-card-url .copy-btn {
+            width: auto;
+            padding: 2px 6px;
+            background: none;
+            flex-shrink: 0;
+        }
+        .config-card-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .config-card-actions .btn {
+            flex: 1;
+            font-size: 0.8rem;
+            padding: 6px 4px;
+        }
+
+        /* Save button loading state */
+        .btn-saving {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+
+        /* Mini App context — hide navbar, use full viewport height */
+        body.tg-webapp .navbar {
+            display: none !important;
+        }
+        body.tg-webapp .container.mt-4 {
+            margin-top: 1rem !important;
         }
     </style>
 </head>
@@ -560,11 +643,11 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#changePasswordModal">
-                            <i class="bi bi-key"></i> 修改密码
+                            <i class="bi bi-key"></i> Change password
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/logout">退出登录</a>
+                        <a class="nav-link" href="/logout">Logout</a>
                     </li>
                 </ul>
             </div>
@@ -580,32 +663,33 @@
         <div class="alert alert-success">{{ success }}</div>
         {% endif %}
 
-        <!-- 配置列表 -->
+        <!-- Config list -->
         <div class="row mb-4">
             <div class="col">
                 <div class="d-flex justify-content-between align-items-center">
-                    <h2>RSS 配置列表</h2>
+                    <h2>RSS Configurations</h2>
                     <button class="btn btn-create animate__animated animate__fadeIn" data-bs-toggle="modal" data-bs-target="#configModal" onclick="clearForm()">
                         <i class="bi bi-plus-circle"></i>
-                        新建配置
+                        New config
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="card mb-4">
+        <!-- Desktop table (hidden on small screens) -->
+        <div class="card mb-4 d-none d-md-block">
             <div class="card-body">
                 <div class="table-responsive">
                     <table class="table table-striped">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>规则ID</th>
-                                <th>规则名称</th>
-                                <th>描述</th>
-                                <th>状态</th>
-                                <th>RSS链接</th>
-                                <th>操作</th>
+                                <th>Rule ID</th>
+                                <th>Rule name</th>
+                                <th>Description</th>
+                                <th>Status</th>
+                                <th>RSS feed URL</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -613,32 +697,32 @@
                             <tr>
                                 <td>{{ config.id }}</td>
                                 <td>{{ config.rule_id }}</td>
-                                <td class="name-cell"><span class="text-truncate">{{ config.rule_title or "未命名" }}</span></td>
-                                <td class="desc-cell"><span class="text-truncate">{{ config.rule_description or "无描述" }}</span></td>
+                                <td class="name-cell"><span class="text-truncate">{{ config.rule_title or "Unnamed" }}</span></td>
+                                <td class="desc-cell"><span class="text-truncate">{{ config.rule_description or "No description" }}</span></td>
                                 <td>
                                     {% if config.enable_rss %}
-                                    <span class="badge bg-success">已启用</span>
+                                    <span class="badge bg-success">Enabled</span>
                                     {% else %}
-                                    <span class="badge bg-secondary">已禁用</span>
+                                    <span class="badge bg-secondary">Disabled</span>
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if config.enable_rss %}
                                     <div class="rss-link">
-                                        <a href="/rss/feed/{{ config.rule_id }}" target="_blank" 
-                                           class="rss-link-text" id="rss-link-{{ config.rule_id }}" title="点击访问">
+                                        <a href="/rss/feed/{{ config.rule_id }}" target="_blank"
+                                           class="rss-link-text" id="rss-link-{{ config.rule_id }}" title="Click to open">
                                             /rss/feed/{{ config.rule_id }}
                                         </a>
-                                        <span class="copy-btn" onclick="copyFullRssLink('{{ config.rule_id }}')" title="复制链接">
+                                        <span class="copy-btn" onclick="copyFullRssLink('{{ config.rule_id }}')" title="Copy link">
                                             <i class="bi bi-clipboard"></i>
                                         </span>
                                     </div>
                                     {% else %}
                                     <div class="rss-link">
-                                        <span class="rss-link-text disabled-link" id="rss-link-{{ config.rule_id }}" title="RSS已禁用">
+                                        <span class="rss-link-text disabled-link" id="rss-link-dt-{{ config.rule_id }}" title="RSS disabled">
                                             /rss/feed/{{ config.rule_id }}
                                         </span>
-                                        <span class="copy-btn" onclick="copyFullRssLink('{{ config.rule_id }}')" title="复制链接">
+                                        <span class="copy-btn" onclick="copyFullRssLink('{{ config.rule_id }}')" title="Copy link">
                                             <i class="bi bi-clipboard"></i>
                                         </span>
                                     </div>
@@ -647,24 +731,27 @@
                                 <td>
                                     <div class="btn-group" role="group">
                                         <button class="btn btn-sm btn-primary" onclick="editConfig('{{ config.id }}', '{{ config.rule_id }}')">
-                                            <i class="bi bi-gear"></i> 编辑
+                                            <i class="bi bi-gear"></i> Edit
                                         </button>
                                         <a href="/rss/toggle/{{ config.rule_id }}" class="btn btn-sm {% if config.enable_rss %}btn-warning{% else %}btn-success{% endif %}">
                                             {% if config.enable_rss %}
-                                            <i class="bi bi-pause-fill"></i> 禁用
+                                            <i class="bi bi-pause-fill"></i> Disable
                                             {% else %}
-                                            <i class="bi bi-play-fill"></i> 启用
+                                            <i class="bi bi-play-fill"></i> Enable
                                             {% endif %}
                                         </a>
                                         <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ config.id }}" data-rule-id="{{ config.rule_id }}">
-                                            <i class="bi bi-trash"></i> 删除
+                                            <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                             {% else %}
                             <tr>
-                                <td colspan="7" class="text-center">暂无 RSS 配置</td>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    <i class="bi bi-rss fs-2 d-block mb-2 opacity-50"></i>
+                                    No RSS configurations yet — click <strong>New config</strong> to get started.
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -672,14 +759,64 @@
                 </div>
             </div>
         </div>
+
+        <!-- Mobile cards (shown only on small screens) -->
+        <div class="d-md-none mb-4">
+            {% for config in rss_configs %}
+            <div class="config-card animate__animated animate__fadeIn">
+                <div class="config-card-header">
+                    <div class="config-card-title">{{ config.rule_title or "Unnamed" }}</div>
+                    {% if config.enable_rss %}
+                    <span class="badge bg-success">Enabled</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Disabled</span>
+                    {% endif %}
+                </div>
+                <div class="config-card-meta">
+                    Rule {{ config.rule_id }}{% if config.rule_description %} · {{ config.rule_description }}{% endif %}
+                </div>
+                <div class="config-card-url">
+                    {% if config.enable_rss %}
+                    <a href="/rss/feed/{{ config.rule_id }}" target="_blank" id="rss-link-{{ config.rule_id }}">/rss/feed/{{ config.rule_id }}</a>
+                    {% else %}
+                    <span id="rss-link-{{ config.rule_id }}" style="opacity:0.5;flex:1;">/rss/feed/{{ config.rule_id }}</span>
+                    {% endif %}
+                    <span class="copy-btn" onclick="copyFullRssLink('{{ config.rule_id }}')" title="Copy link">
+                        <i class="bi bi-clipboard"></i>
+                    </span>
+                </div>
+                <div class="config-card-actions">
+                    <button class="btn btn-sm btn-primary" onclick="editConfig('{{ config.id }}', '{{ config.rule_id }}')">
+                        <i class="bi bi-gear"></i> Edit
+                    </button>
+                    <a href="/rss/toggle/{{ config.rule_id }}" class="btn btn-sm {% if config.enable_rss %}btn-warning{% else %}btn-success{% endif %}">
+                        {% if config.enable_rss %}
+                        <i class="bi bi-pause-fill"></i> Disable
+                        {% else %}
+                        <i class="bi bi-play-fill"></i> Enable
+                        {% endif %}
+                    </a>
+                    <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="{{ config.id }}" data-rule-id="{{ config.rule_id }}">
+                        <i class="bi bi-trash"></i> Delete
+                    </button>
+                </div>
+            </div>
+            {% else %}
+            <div class="config-card text-center text-muted py-3">
+                <i class="bi bi-rss fs-2 d-block mb-2 opacity-50"></i>
+                No RSS configurations yet.<br>
+                Tap <strong>New config</strong> above to get started.
+            </div>
+            {% endfor %}
+        </div>
     </div>
 
-    <!-- 编辑/创建配置模态框 -->
+    <!-- Edit/create config modal -->
     <div class="modal fade" id="configModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="configModalTitle">编辑 RSS 配置</h5>
+                    <h5 class="modal-title" id="configModalTitle">Edit RSS config</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
@@ -687,91 +824,91 @@
                         <input type="hidden" id="config_id" name="config_id">
                         
                         <div class="mb-3" id="rule_id_container">
-                            <label for="rule_id" class="form-label">规则 ID</label>
+                            <label for="rule_id" class="form-label">Rule ID</label>
                             <select class="form-select" id="rule_id" name="rule_id" required>
-                                <option value="">请选择规则</option>
+                                <option value="">Select a rule</option>
                                 {% for rule in rules %}
                                 <option value="{{ rule.id }}">{{ rule.id }} - {{ rule.source_chat.name }} → {{ rule.target_chat.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
 
-                        <!-- 添加复制配置功能 -->
+                        <!-- Copy config settings -->
                         <div class="mb-3 border-bottom pb-3">
                             <div class="row align-items-end">
                                 <div class="col-md-8">
-                                    <label for="copy_config" class="form-label">复制已有配置</label>
+                                    <label for="copy_config" class="form-label">Copy existing config</label>
                                     <select class="form-select" id="copy_config">
-                                        <option value="">选择一个配置复制其设置</option>
+                                        <option value="">Select a config to copy its settings</option>
                                         {% for config in rss_configs %}
-                                        <option value="{{ config.id }}">{{ config.rule_id }} - {{ config.rule_title or "未命名" }}</option>
+                                        <option value="{{ config.id }}">{{ config.rule_id }} - {{ config.rule_title or "Unnamed" }}</option>
                                         {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-md-4">
                                     <button type="button" class="btn btn-info w-100" onclick="copyConfigSettings()">
-                                        <i class="bi bi-clipboard"></i> 复制设置
+                                        <i class="bi bi-clipboard"></i> Copy settings
                                     </button>
                                 </div>
                             </div>
-                            <div class="form-text text-muted mt-2">复制操作只会填充表单，需要点击保存才会生效</div>
+                            <div class="form-text text-muted mt-2">This only fills the form — click Save to apply changes</div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="rule_title" class="form-label">订阅源标题</label>
+                            <label for="rule_title" class="form-label">Feed title</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="rule_title" name="rule_title">
-                                <button type="button" class="btn btn-outline-secondary" onclick="autoFillTitle()" title="自动填充标题">
-                                    <i class="bi bi-magic"></i> 自动填充
+                                <button type="button" class="btn btn-outline-secondary" onclick="autoFillTitle()" title="Auto-fill title">
+                                    <i class="bi bi-magic"></i> Auto-fill
                                 </button>
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="rule_description" class="form-label">订阅源描述</label>
+                            <label for="rule_description" class="form-label">Feed description</label>
                             <textarea class="form-control" id="rule_description" name="rule_description" rows="3"></textarea>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="language" class="form-label">语言</label>
+                                <label for="language" class="form-label">Language</label>
                                 <input type="text" class="form-control" id="language" name="language" value="zh-CN">
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="max_items" class="form-label">最大条目数</label>
+                                <label for="max_items" class="form-label">Max items</label>
                                 <input type="number" class="form-control" id="max_items" name="max_items" value="50">
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">内容处理选项</label>
+                            <label class="form-label">Content processing options</label>
                             <div class="border rounded p-3">
-                                <!-- AI提取选项 -->
+                                <!-- AI extraction option -->
                                 <div class="mb-3">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="is_ai_extract" name="is_ai_extract" onchange="handleAIExtractChange()">
-                                        <label class="form-check-label" for="is_ai_extract">使用 AI 提取标题和内容</label>
+                                        <label class="form-check-label" for="is_ai_extract">Use AI to extract title and content</label>
                                     </div>
                                 </div>
-                                
-                                <!-- 其他自动提取选项 -->
+
+                                <!-- Other auto-extraction options -->
                                 <div id="normalExtractOptions">
                                     <div class="mb-2">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input normal-extract" type="checkbox" id="is_auto_title" name="is_auto_title" onchange="handleNormalExtractChange()">
-                                            <label class="form-check-label" for="is_auto_title">自动提取标题</label>
+                                            <label class="form-check-label" for="is_auto_title">Auto-extract title</label>
                                         </div>
                                     </div>
                                     <div class="mb-2">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input normal-extract" type="checkbox" id="is_auto_content" name="is_auto_content" onchange="handleNormalExtractChange()">
-                                            <label class="form-check-label" for="is_auto_content">自动提取内容</label>
+                                            <label class="form-check-label" for="is_auto_content">Auto-extract content</label>
                                         </div>
                                     </div>
                                     <div class="mb-2">
                                         <div class="form-check form-switch">
                                             <input class="form-check-input normal-extract" type="checkbox" id="is_auto_markdown_to_html" name="is_auto_markdown_to_html" onchange="handleNormalExtractChange()">
-                                            <label class="form-check-label" for="is_auto_markdown_to_html">自动将 Markdown 转换为 HTML</label>
+                                            <label class="form-check-label" for="is_auto_markdown_to_html">Auto-convert Markdown to HTML</label>
                                         </div>
                                     </div>
                                 </div>
@@ -779,23 +916,23 @@
                         </div>
 
                         <div class="mb-3">
-                            <label for="ai_extract_prompt" class="form-label">AI 提取提示词</label>
+                            <label for="ai_extract_prompt" class="form-label">AI extraction prompt</label>
                             <textarea class="form-control" id="ai_extract_prompt" name="ai_extract_prompt" rows="3"></textarea>
                         </div>
 
                         <script>
-                            // 处理AI提取选项变化
+                            // Handle AI extraction option changes
                             function handleAIExtractChange() {
                                 const isAIExtract = document.getElementById('is_ai_extract').checked;
                                 const normalExtractInputs = document.querySelectorAll('.normal-extract');
                                 
-                                // 如果启用AI提取，禁用其他选项
+                                // If AI extraction enabled, disable other options
                                 normalExtractInputs.forEach(input => {
                                     input.checked = false;
                                     input.disabled = isAIExtract;
                                 });
                                 
-                                // 同时禁用自定义正则表达式提取选项
+                                // Also disable custom regex extraction options
                                 const customTitlePattern = document.getElementById('enable_custom_title_pattern');
                                 const customContentPattern = document.getElementById('enable_custom_content_pattern');
                                 
@@ -805,25 +942,25 @@
                                 customContentPattern.disabled = isAIExtract;
                             }
                             
-                            // 处理普通提取选项变化
+                            // Handle standard extraction option changes
                             function handleNormalExtractChange() {
                                 const normalExtractInputs = document.querySelectorAll('.normal-extract');
                                 const isAnyNormalChecked = Array.from(normalExtractInputs).some(input => input.checked);
                                 
-                                // 如果有任何普通选项被选中，禁用AI提取
+                                // If any standard option selected, disable AI extraction
                                 const aiExtract = document.getElementById('is_ai_extract');
                                 if (isAnyNormalChecked) {
                                     aiExtract.checked = false;
                                 }
                             }
                             
-                            // 处理自定义正则提取选项变化
+                            // Handle custom regex extraction option changes
                             function handleCustomExtractChange() {
                                 const customTitlePattern = document.getElementById('enable_custom_title_pattern');
                                 const customContentPattern = document.getElementById('enable_custom_content_pattern');
                                 const isAnyCustomChecked = customTitlePattern.checked || customContentPattern.checked;
                                 
-                                // 如果有任何自定义正则选项被选中，禁用AI提取
+                                // If any custom regex option selected, disable AI extraction
                                 const aiExtract = document.getElementById('is_ai_extract');
                                 if (isAnyCustomChecked) {
                                     aiExtract.checked = false;
@@ -831,95 +968,95 @@
                             }
                         </script>
 
-                        <!-- 添加正则表达式模式管理部分 -->
+                        <!-- Regex pattern management -->
                         <div class="border rounded p-3 mb-3">
-                            <h5 class="mb-3">正则表达式配置</h5>
-                            
-                            <!-- 添加自定义模式启用开关 -->
+                            <h5 class="mb-3">Regex configuration</h5>
+
+                            <!-- Custom pattern enable toggles -->
                             <div class="row mb-3">
                                 <div class="col-md-6">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="enable_custom_title_pattern" name="enable_custom_title_pattern" onchange="handleCustomExtractChange()">
-                                        <label class="form-check-label" for="enable_custom_title_pattern">启用自定义标题提取正则表达式</label>
+                                        <label class="form-check-label" for="enable_custom_title_pattern">Enable custom title extraction regex</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="enable_custom_content_pattern" name="enable_custom_content_pattern" onchange="handleCustomExtractChange()">
-                                        <label class="form-check-label" for="enable_custom_content_pattern">启用自定义内容提取正则表达式</label>
+                                        <label class="form-check-label" for="enable_custom_content_pattern">Enable custom content extraction regex</label>
                                     </div>
                                 </div>
                             </div>
-                            
-                            <!-- 新模式输入区域 -->
+
+                            <!-- New pattern input area -->
                             <div class="row mb-3">
                                 <div class="col-md-5">
-                                    <label for="new_pattern" class="form-label">正则表达式</label>
-                                    <input type="text" class="form-control" id="new_pattern" placeholder="例如: ^#[^\s]+\s+\*\*([^*]+?)\*\*">
+                                    <label for="new_pattern" class="form-label">Regex pattern</label>
+                                    <input type="text" class="form-control" id="new_pattern" placeholder="e.g. ^#[^\s]+\s+\*\*([^*]+?)\*\*">
                                 </div>
                                 <div class="col-md-3">
-                                    <label for="new_pattern_type" class="form-label">类型</label>
+                                    <label for="new_pattern_type" class="form-label">Type</label>
                                     <select class="form-select" id="new_pattern_type">
-                                        <option value="title">标题</option>
-                                        <option value="content">内容</option>
+                                        <option value="title">Title</option>
+                                        <option value="content">Content</option>
                                     </select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label for="new_priority" class="form-label">优先级</label>
+                                    <label for="new_priority" class="form-label">Priority</label>
                                     <input type="number" class="form-control" id="new_priority" value="0">
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label">&nbsp;</label>
                                     <button type="button" class="btn btn-primary w-100" onclick="addPattern()">
-                                        <i class="bi bi-plus-circle"></i> 添加
+                                        <i class="bi bi-plus-circle"></i> Add
                                     </button>
                                 </div>
                             </div>
-                            <div class="form-text text-muted mb-3">优先级说明：数字越低优先级越高，越先执行</div>
+                            <div class="form-text text-muted mb-3">Priority: lower numbers run first</div>
                             
-                            <!-- 正则表达式测试区域 -->
+                            <!-- Regex test area -->
                             <div class="mb-3">
                                 <button class="btn btn-sm btn-outline-primary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#regexTestArea" aria-expanded="false" aria-controls="regexTestArea">
-                                    <i class="bi bi-check-circle"></i> 展开正则表达式测试区域
+                                    <i class="bi bi-check-circle"></i> Expand regex test area
                                 </button>
-                                
+
                                 <div class="collapse mt-3" id="regexTestArea">
                                     <div class="card">
                                         <div class="card-body">
-                                            <h6 class="card-title fw-bold mb-3">正则表达式测试</h6>
-                                            <p class="text-muted small mb-4">在这里输入示例文本并测试您的正则表达式是否能正确匹配并提取内容</p>
-                                            
+                                            <h6 class="card-title fw-bold mb-3">Regex tester</h6>
+                                            <p class="text-muted small mb-4">Enter sample text here and test whether your regex correctly matches and extracts content</p>
+
                                             <div class="mb-3">
-                                                <label for="regex_test_text" class="form-label fw-medium">测试文本</label>
-                                                <textarea class="form-control" id="regex_test_text" rows="4" placeholder="输入要测试的文本..."></textarea>
+                                                <label for="regex_test_text" class="form-label fw-medium">Test text</label>
+                                                <textarea class="form-control" id="regex_test_text" rows="4" placeholder="Enter text to test..."></textarea>
                                             </div>
-                                            
+
                                             <div class="row mb-3">
                                                 <div class="col-md-8">
-                                                    <label for="regex_test_pattern" class="form-label fw-medium">正则表达式</label>
+                                                    <label for="regex_test_pattern" class="form-label fw-medium">Regex pattern</label>
                                                     <div class="input-group">
-                                                        <input type="text" class="form-control" id="regex_test_pattern" placeholder="输入要测试的正则表达式">
+                                                        <input type="text" class="form-control" id="regex_test_pattern" placeholder="Enter regex to test">
                                                         <select class="form-select" id="regex_test_type" style="max-width: 120px;">
-                                                            <option value="title">标题提取</option>
-                                                            <option value="content">内容提取</option>
+                                                            <option value="title">Title extraction</option>
+                                                            <option value="content">Content extraction</option>
                                                         </select>
                                                     </div>
-                                                    <div class="form-text">记得使用括号 () 创建捕获组来提取内容</div>
+                                                    <div class="form-text">Remember to use parentheses () to create capture groups</div>
                                                 </div>
                                                 <div class="col-md-4 d-flex align-items-center">
                                                     <button type="button" class="btn btn-primary w-100" onclick="testRegex()" style="margin-top: 5px;">
-                                                        <i class="bi bi-lightning"></i> 测试正则表达式
+                                                        <i class="bi bi-lightning"></i> Test regex
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             <div id="regex_test_result" class="alert alert-info" style="display: none;">
-                                                测试结果将显示在这里
+                                                Test results will appear here
                                             </div>
-                                            
+
                                             <div class="d-flex justify-content-end">
                                                 <button type="button" class="btn btn-sm btn-success" onclick="applyTestedRegex()" id="apply_regex_btn" style="display: none;">
-                                                    <i class="bi bi-check2"></i> 应用到输入框
+                                                    <i class="bi bi-check2"></i> Apply to input
                                                 </button>
                                             </div>
                                         </div>
@@ -927,55 +1064,55 @@
                                 </div>
                             </div>
                             
-                            <!-- 使用标签页分开显示标题模式和内容模式 -->
+                            <!-- Tabs for title patterns and content patterns -->
                             <ul class="nav nav-tabs mb-3" id="patternsTabs" role="tablist">
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link active" id="title-patterns-tab" data-bs-toggle="tab" data-bs-target="#title-patterns" type="button" role="tab" aria-controls="title-patterns" aria-selected="true">标题模式</button>
+                                    <button class="nav-link active" id="title-patterns-tab" data-bs-toggle="tab" data-bs-target="#title-patterns" type="button" role="tab" aria-controls="title-patterns" aria-selected="true">Title patterns</button>
                                 </li>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link" id="content-patterns-tab" data-bs-toggle="tab" data-bs-target="#content-patterns" type="button" role="tab" aria-controls="content-patterns" aria-selected="false">内容模式</button>
+                                    <button class="nav-link" id="content-patterns-tab" data-bs-toggle="tab" data-bs-target="#content-patterns" type="button" role="tab" aria-controls="content-patterns" aria-selected="false">Content patterns</button>
                                 </li>
                             </ul>
                             <div class="tab-content" id="patternsTabContent">
-                                <!-- 标题模式表格 -->
+                                <!-- Title patterns table -->
                                 <div class="tab-pane fade show active" id="title-patterns" role="tabpanel" aria-labelledby="title-patterns-tab">
                                     <div class="table-responsive">
                                         <table class="table table-sm table-striped">
                                             <thead>
                                                 <tr>
-                                                    <th>模式</th>
-                                                    <th>优先级</th>
-                                                    <th>操作</th>
+                                                    <th>Pattern</th>
+                                                    <th>Priority</th>
+                                                    <th>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="title_patterns_list">
-                                                <!-- 标题模式列表会通过JS动态加载 -->
+                                                <!-- Title pattern list loaded dynamically via JS -->
                                             </tbody>
                                         </table>
                                     </div>
                                     <div id="no_title_patterns_message" class="text-center py-2">
-                                        <p class="text-muted mb-0">暂无标题模式配置</p>
+                                        <p class="text-muted mb-0">No title patterns configured</p>
                                     </div>
                                 </div>
-                                
-                                <!-- 内容模式表格 -->
+
+                                <!-- Content patterns table -->
                                 <div class="tab-pane fade" id="content-patterns" role="tabpanel" aria-labelledby="content-patterns-tab">
                                     <div class="table-responsive">
                                         <table class="table table-sm table-striped">
                                             <thead>
                                                 <tr>
-                                                    <th>模式</th>
-                                                    <th>优先级</th>
-                                                    <th>操作</th>
+                                                    <th>Pattern</th>
+                                                    <th>Priority</th>
+                                                    <th>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody id="content_patterns_list">
-                                                <!-- 内容模式列表会通过JS动态加载 -->
+                                                <!-- Content pattern list loaded dynamically via JS -->
                                             </tbody>
                                         </table>
                                     </div>
                                     <div id="no_content_patterns_message" class="text-center py-2">
-                                        <p class="text-muted mb-0">暂无内容模式配置</p>
+                                        <p class="text-muted mb-0">No content patterns configured</p>
                                     </div>
                                 </div>
                             </div>
@@ -983,135 +1120,135 @@
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="saveConfig()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="saveConfig()"><i class="bi bi-save"></i> Save</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 删除确认模态框 -->
+    <!-- Delete confirmation modal -->
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">确认删除</h5>
+                    <h5 class="modal-title">Confirm delete</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    确定要删除这个 RSS 配置吗？此操作不可撤销。
+                    Are you sure you want to delete this RSS configuration? This action cannot be undone.
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <a href="#" id="deleteConfirm" class="btn btn-danger">删除</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="#" id="deleteConfirm" class="btn btn-danger">Delete</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 修改密码模态框 -->
+    <!-- Change password modal -->
     <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">修改密码</h5>
+                    <h5 class="modal-title">Change password</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="changePasswordForm" method="post" action="/rss/change_password">
                         <div class="mb-3">
-                            <label for="current_password" class="form-label">当前密码</label>
+                            <label for="current_password" class="form-label">Current password</label>
                             <input type="password" class="form-control" id="current_password" name="current_password" required>
                         </div>
                         <div class="mb-3">
-                            <label for="new_password" class="form-label">新密码</label>
+                            <label for="new_password" class="form-label">New password</label>
                             <input type="password" class="form-control" id="new_password" name="new_password" required>
-                            <div class="form-text">密码长度至少为8个字符</div>
+                            <div class="form-text">Password must be at least 8 characters</div>
                         </div>
                         <div class="mb-3">
-                            <label for="confirm_password" class="form-label">确认新密码</label>
+                            <label for="confirm_password" class="form-label">Confirm new password</label>
                             <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
                         </div>
                         <div id="password_error" class="alert alert-danger" style="display: none;"></div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                    <button type="button" class="btn btn-primary" onclick="changePassword()">保存</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="changePassword()">Save</button>
                 </div>
             </div>
         </div>
     </div>
 
     <div id="copySuccess" class="copy-success">
-        已复制 RSS 链接到剪贴板
+        RSS link copied to clipboard
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 配置数据 - 使用JSON直接传递数据
+        // Config data — passed as JSON directly
         let configs;
         try {
-            // 解析配置数据
+            // Parse config data
             configs = JSON.parse('{{ rss_configs|tojson }}');
-            console.log('初始化时加载的配置数据:', configs);
+            console.log('Configs loaded on init:', configs);
             
-            // 处理每个配置中的Base64编码字段
+            // Handle Base64-encoded fields in each config
             configs.forEach(config => {
                 if (config.ai_extract_prompt && config.ai_extract_prompt.startsWith('BASE64:')) {
                     try {
-                        // 解码Base64内容 - 使用支持UTF-8的解码方法
-                        const base64Content = config.ai_extract_prompt.substring(7); // 移除 'BASE64:' 前缀
+                        // Decode Base64 content using UTF-8-aware method
+                        const base64Content = config.ai_extract_prompt.substring(7); // Strip 'BASE64:' prefix
                         
-                        // 自定义Base64解码函数，支持UTF-8
+                        // Custom Base64 decode function with UTF-8 support
                         function base64DecodeUnicode(str) {
-                            // 转换base64为二进制字符串
+                            // Convert base64 to binary string
                             const binaryStr = atob(str);
-                            // 创建Uint8Array来存储每个字符的UTF-8编码
+                            // Create Uint8Array to store UTF-8 bytes
                             const bytes = new Uint8Array(binaryStr.length);
                             for (let i = 0; i < binaryStr.length; i++) {
                                 bytes[i] = binaryStr.charCodeAt(i);
                             }
-                            // 解码为UTF-8字符串
+                            // Decode to UTF-8 string
                             return new TextDecoder().decode(bytes);
                         }
                         
                         const decodedContent = base64DecodeUnicode(base64Content);
                         config.ai_extract_prompt = decodedContent;
-                        console.log('成功解码AI提取提示词');
+                        console.log('AI extraction prompt decoded successfully');
                     } catch (decodeError) {
-                        console.error('解码Base64内容失败:', decodeError);
-                        config.ai_extract_prompt = '（提示词内容无法正确显示）';
+                        console.error('Failed to decode Base64 content:', decodeError);
+                        config.ai_extract_prompt = '(Prompt content could not be displayed)';
                     }
                 }
             });
         } catch (error) {
-            console.error('解析配置数据失败:', error);
-            console.error('原始JSON字符串:', '{{ rss_configs|tojson }}'.substring(0, 200) + '...');
-            // 设置为空数组，防止页面出错
+            console.error('Failed to parse config data:', error);
+            console.error('Raw JSON string:', '{{ rss_configs|tojson }}'.substring(0, 200) + '...');
+            // Fallback to empty array to prevent page errors
             configs = [];
-            alert('加载配置数据时出错，请刷新页面或联系管理员');
+            alert('Error loading configuration data — please refresh the page or contact an administrator');
         }
         
-        let currentPatterns = []; // 当前编辑的配置的模式列表
+        let currentPatterns = []; // Pattern list for the config being edited
 
-        // 编辑配置
+        // Edit config
         function editConfig(id, ruleId) {
-            // 添加调试日志
-            console.log('点击编辑按钮，参数:', { id, ruleId });
+            // Debug log
+            console.log('Edit button clicked, args:', { id, ruleId });
             
-            // 将字符串参数转换为数字
+            // Convert string args to numbers
             id = parseInt(id);
             ruleId = parseInt(ruleId);
             
-            console.log('转换为数字后的参数:', { id, ruleId });
+            console.log('Args after number conversion:', { id, ruleId });
             
             const config = configs.find(c => c.id === id);
-            console.log('查找到的配置:', config);
+            console.log('Found config:', config);
             
             if (config) {
-                console.log('开始设置表单值...');
-                document.getElementById('configModalTitle').textContent = '编辑 RSS 配置';
+                console.log('Setting form values...');
+                document.getElementById('configModalTitle').textContent = 'Edit RSS config';
                 document.getElementById('config_id').value = config.id;
                 document.getElementById('rule_id').value = config.rule_id;
                 document.getElementById('rule_id').disabled = true;
@@ -1124,37 +1261,37 @@
                 document.getElementById('is_auto_markdown_to_html').checked = config.is_auto_markdown_to_html;
                 document.getElementById('is_ai_extract').checked = config.is_ai_extract;
                 
-                // 设置AI提取提示词，已经在JSON解析阶段处理了Base64编码
+                // Set AI extraction prompt — Base64 already decoded at JSON parse stage
                 document.getElementById('ai_extract_prompt').value = config.ai_extract_prompt || '';
                 
                 document.getElementById('enable_custom_title_pattern').checked = config.enable_custom_title_pattern;
                 document.getElementById('enable_custom_content_pattern').checked = config.enable_custom_content_pattern;
-                console.log('表单值已设置完成');
+                console.log('Form values set.');
                 
-                // 显示模态框
+                // Show modal
                 try {
-                    console.log('准备显示模态框...');
+                    console.log('Opening modal...');
                     const modalElement = document.getElementById('configModal');
-                    console.log('找到模态框元素:', modalElement);
+                    console.log('Found modal element:', modalElement);
                     const modal = new bootstrap.Modal(modalElement);
-                    console.log('创建了Bootstrap Modal对象');
+                    console.log('Bootstrap Modal object created.');
                     modal.show();
-                    console.log('模态框已显示');
+                    console.log('Modal shown.');
                 } catch (error) {
-                    console.error('显示模态框时出错:', error);
+                    console.error('Error showing modal:', error);
                 }
                 
-                // 加载该配置的模式
-                console.log('准备加载配置模式, configId:', id);
+                // Load patterns for this config
+                console.log('Loading config patterns, configId:', id);
                 loadPatternsForConfig(id);
             } else {
-                console.error('未找到相应的配置, id:', id);
+                console.error('Config not found, id:', id);
             }
         }
 
-        // 清空表单，用于创建新配置
+        // Clear form for creating a new config
         function clearForm() {
-            document.getElementById('configModalTitle').textContent = '创建 RSS 配置';
+            document.getElementById('configModalTitle').textContent = 'Create RSS config';
             document.getElementById('config_id').value = '';
             document.getElementById('rule_id').disabled = false;
             document.getElementById('rule_id').selectedIndex = 0;
@@ -1166,27 +1303,27 @@
             document.getElementById('is_auto_content').checked = false;
             document.getElementById('is_auto_markdown_to_html').checked = false;
             document.getElementById('is_ai_extract').checked = false;
-            document.getElementById('ai_extract_prompt').value = '请按照以下要求从消息文本中提取标题和正文内容：\n1. 若文本中已有明确标题，则直接提取；否则根据正文生成合适标题；\n2. 若原文为 Markdown 格式，请先转换为 HTML 格式后再提取；\n3. 最终输出必须为标准 JSON 格式，如下：\n{ "title": "提取或生成的标题", "content": "提取后的正文内容（HTML 格式），要去掉标题" }\n请仅返回上述 JSON 格式，不得包含其他任何内容或代码块。以下是消息内容：';
+            document.getElementById('ai_extract_prompt').value = 'Extract the title and body content from the message text according to the following requirements:\n1. If the text already has a clear title, extract it directly; otherwise generate an appropriate title from the body.\n2. If the original text is in Markdown format, convert it to HTML before extracting.\n3. The final output must be valid JSON as follows:\n{ "title": "extracted or generated title", "content": "extracted body content (HTML format), without the title" }\nReturn only the JSON above — no other content or code blocks. Message content follows:';
             document.getElementById('enable_custom_title_pattern').checked = false;
             document.getElementById('enable_custom_content_pattern').checked = false;
             
-            // 清空模式列表
+            // Clear pattern list
             currentPatterns = [];
             renderPatternsList();
             
-            // 禁用已经有配置的规则ID选项
+            // Disable rule ID options that already have a config
             disableConfiguredRules();
         }
         
-        // 禁用已经有配置的规则ID选项
+        // Disable rule ID options that already have a config
         function disableConfiguredRules() {
-            // 获取所有已配置的规则ID
+            // Get all rule IDs that already have a config
             const configuredRuleIds = configs.map(config => config.rule_id);
             
-            // 获取规则选择下拉框中的所有选项
+            // Get all options in the rule dropdown
             const ruleOptions = document.getElementById('rule_id').options;
             
-            // 保存原始选项文本，如果尚未保存
+            // Save original option text if not yet saved
             if (!window.originalOptionTexts) {
                 window.originalOptionTexts = {};
                 for (let i = 0; i < ruleOptions.length; i++) {
@@ -1195,28 +1332,28 @@
                 }
             }
             
-            // 遍历所有选项，禁用已配置的规则ID
+            // Iterate options and disable already-configured rule IDs
             for (let i = 0; i < ruleOptions.length; i++) {
                 const option = ruleOptions[i];
                 const ruleId = parseInt(option.value);
                 const originalText = window.originalOptionTexts[option.value];
                 
-                // 先恢复原始文本
+                // Restore original text first
                 if (originalText) {
                     option.text = originalText;
                 }
                 
-                // 如果是已配置的规则ID且不是空值，则禁用该选项
+                // Disable option if rule ID is already configured (and not blank)
                 if (ruleId && configuredRuleIds.includes(ruleId)) {
                     option.disabled = true;
-                    option.text = option.text + ' (已配置)';
+                    option.text = option.text + ' (configured)';
                 } else {
                     option.disabled = false;
                 }
             }
         }
         
-        // 加载特定配置的所有模式
+        // Load all patterns for a specific config
         function loadPatternsForConfig(configId) {
             if (!configId) {
                 currentPatterns = [];
@@ -1235,19 +1372,19 @@
                     renderPatternsList();
                 })
                 .catch(error => {
-                    console.error('加载模式失败:', error);
+                    console.error('Failed to load patterns:', error);
                     currentPatterns = [];
                     renderPatternsList();
                 });
         }
         
-        // 渲染模式列表
+        // Render pattern list
         function renderPatternsList() {
-            // 分离标题和内容模式
+            // Separate title and content patterns
             const titlePatterns = currentPatterns.filter(p => p.pattern_type === 'title');
             const contentPatterns = currentPatterns.filter(p => p.pattern_type === 'content');
             
-            // 更新标题模式列表
+            // Update title pattern list
             const titleTbody = document.getElementById('title_patterns_list');
             const noTitlePatterns = document.getElementById('no_title_patterns_message');
             
@@ -1273,7 +1410,7 @@
                 noTitlePatterns.style.display = 'block';
             }
             
-            // 更新内容模式列表
+            // Update content pattern list
             const contentTbody = document.getElementById('content_patterns_list');
             const noContentPatterns = document.getElementById('no_content_patterns_message');
             
@@ -1300,48 +1437,48 @@
             }
         }
         
-        // 添加新模式
+        // Add new pattern
         function addPattern() {
             const pattern = document.getElementById('new_pattern').value.trim();
             const patternType = document.getElementById('new_pattern_type').value;
             const priority = parseInt(document.getElementById('new_priority').value);
             
             if (!pattern) {
-                alert('请输入正则表达式');
+                alert('Please enter a regex pattern');
                 return;
             }
             
-            // 检查是否已存在相同模式
+            // Check if an identical pattern already exists
             const existingPattern = currentPatterns.find(p => 
                 p.pattern === pattern && p.pattern_type === patternType
             );
             
             if (existingPattern) {
-                // 已存在相同模式，询问用户是否更新优先级
-                if (confirm(`已存在相同的${patternType === 'title' ? '标题' : '内容'}正则表达式`)) {
+                // Pattern exists — ask user if they want to update priority
+                if (confirm(`A ${patternType === 'title' ? 'title' : 'content'} regex with this pattern already exists`)) {
                     ;
                 }
                 return;
             }
             
-            // 添加到当前模式列表
+            // Add to current pattern list
             currentPatterns.push({
                 pattern: pattern,
                 pattern_type: patternType,
                 priority: priority,
-                // 临时ID，后端保存时会分配真正的ID
+                // Temp ID — real ID assigned when saved to backend
                 id: 'temp_' + Date.now()
             });
             
-            // 重新渲染列表
+            // Re-render list
             renderPatternsList();
             
-            // 清空输入
+            // Clear inputs
             document.getElementById('new_pattern').value = '';
             document.getElementById('new_priority').value = '0';
         }
         
-        // 移除模式
+        // Remove pattern
         function removePattern(patternId) {
             const index = currentPatterns.findIndex(p => p.id.toString() === patternId.toString());
             if (index >= 0) {
@@ -1350,29 +1487,44 @@
             }
         }
 
-        // 保存配置
+        function _restoreSaveBtn() {
+            const saveBtn = document.querySelector('#configModal .btn-primary[onclick="saveConfig()"]');
+            if (saveBtn) {
+                saveBtn.classList.remove('btn-saving');
+                saveBtn.innerHTML = '<i class="bi bi-save"></i> Save';
+            }
+        }
+
+        // Save config
         function saveConfig() {
-            // 先保存主配置
+            // Show loading state on save button
+            const saveBtn = document.querySelector('#configModal .btn-primary[onclick="saveConfig()"]');
+            if (saveBtn) {
+                saveBtn.classList.add('btn-saving');
+                saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Saving…';
+            }
+
+            // Save main config first
             const form = document.getElementById('configForm');
             const formData = new FormData(form);
             const configId = document.getElementById('config_id').value;
             const ruleId = document.getElementById('rule_id').value;
             
-            // 确保 rule_id 被添加到表单数据中
+            // Ensure rule_id is included in form data
             if (!formData.has('rule_id') && ruleId) {
                 formData.append('rule_id', ruleId);
             }
             
-            // 记录要提交的AI提取提示词内容，帮助调试
+            // Log AI extraction prompt for debugging
             const aiPrompt = document.getElementById('ai_extract_prompt').value;
-            console.log('提交的AI提取提示词:', aiPrompt);
-            console.log('AI提取提示词字符数:', aiPrompt.length);
+            console.log('AI extraction prompt being submitted:', aiPrompt);
+            console.log('AI extraction prompt length:', aiPrompt.length);
             
-            // 检查表单数据
-            console.log('表单数据预览:');
+            // Inspect form data
+            console.log('Form data preview:');
             for (let [key, value] of formData.entries()) {
                 if (key === 'ai_extract_prompt') {
-                    console.log(`${key}: 字符数=${value.length}`);
+                    console.log(`${key}: length=${value.length}`);
                 } else {
                     console.log(`${key}: ${value}`);
                 }
@@ -1385,25 +1537,25 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 配置保存成功，现在保存模式
+                    // Config saved — now save patterns
                     const savedConfigId = data.config_id;
                     
-                    // 如果没有模式，直接刷新页面
+                    // No patterns — reload page directly
                     if (currentPatterns.length === 0) {
-                        window.location.href = '/rss/dashboard?success=配置保存成功';
+                        window.location.href = '/rss/dashboard?success=Configuration saved successfully';
                         return;
                     }
-                    
-                    // 先清除所有现有模式，然后重新创建
-                    console.log('正在清除现有模式...');
+
+                    // Clear all existing patterns, then recreate
+                    console.log('Clearing existing patterns...');
                     fetch(`/rss/patterns/${savedConfigId}`, {
                         method: 'DELETE'
                     })
                     .then(response => response.json())
                     .then(clearResult => {
-                        console.log('清除模式结果:', clearResult);
+                        console.log('Clear patterns result:', clearResult);
                         
-                        // 保存所有模式
+                        // Save all patterns
                         const savePromises = currentPatterns.map(pattern => {
                             const patternData = new FormData();
                             patternData.append('rss_config_id', savedConfigId);
@@ -1411,9 +1563,9 @@
                             patternData.append('pattern_type', pattern.pattern_type);
                             patternData.append('priority', pattern.priority);
                             
-                            // 不再需要传递pattern_id，因为所有模式都是新创建的
+                            // No need to pass pattern_id — all patterns are being recreated
                             
-                            console.log('保存模式:', {
+                            console.log('Saving pattern:', {
                                 rss_config_id: savedConfigId,
                                 pattern: pattern.pattern,
                                 pattern_type: pattern.pattern_type,
@@ -1426,28 +1578,28 @@
                             }).then(res => res.json())
                             .then(data => {
                                 if (!data.success) {
-                                    throw new Error(data.message || '保存模式失败');
+                                    throw new Error(data.message || 'Failed to save pattern');
                                 }
                                 return data;
                             });
                         });
                         
-                        // 等待所有模式保存完成
+                        // Wait for all patterns to finish saving
                         Promise.all(savePromises)
                             .then(() => {
-                                window.location.href = '/rss/dashboard?success=配置和模式保存成功';
+                                window.location.href = '/rss/dashboard?success=Configuration and patterns saved successfully';
                             })
                             .catch(error => {
-                                console.error('保存模式失败:', error);
-                                alert('保存模式失败: ' + error.message);
-                                window.location.href = '/rss/dashboard?success=配置已保存，但部分模式保存失败';
+                                console.error('Failed to save patterns:', error);
+                                alert('Failed to save patterns: ' + error.message);
+                                window.location.href = '/rss/dashboard?success=Configuration saved, but some patterns failed to save';
                             });
                     })
                     .catch(error => {
-                        console.error('清除现有模式失败:', error);
-                        alert('清除现有模式失败，将尝试直接保存新模式');
+                        console.error('Failed to clear existing patterns:', error);
+                        alert('Failed to clear existing patterns — will attempt to save new patterns directly');
                         
-                        // 保存所有模式
+                        // Save all patterns
                         const savePromises = currentPatterns.map(pattern => {
                             const patternData = new FormData();
                             patternData.append('rss_config_id', savedConfigId);
@@ -1455,12 +1607,12 @@
                             patternData.append('pattern_type', pattern.pattern_type);
                             patternData.append('priority', pattern.priority);
                             
-                            // 如果是已存在的模式，添加pattern_id
+                            // For existing patterns, include pattern_id
                             if (pattern.id && !pattern.id.toString().startsWith('temp_')) {
                                 patternData.append('pattern_id', pattern.id);
                             }
                             
-                            console.log('保存模式:', {
+                            console.log('Saving pattern:', {
                                 rss_config_id: savedConfigId,
                                 pattern: pattern.pattern,
                                 pattern_type: pattern.pattern_type,
@@ -1474,44 +1626,46 @@
                             }).then(res => res.json())
                             .then(data => {
                                 if (!data.success) {
-                                    throw new Error(data.message || '保存模式失败');
+                                    throw new Error(data.message || 'Failed to save pattern');
                                 }
                                 return data;
                             });
                         });
                         
-                        // 等待所有模式保存完成
+                        // Wait for all patterns to be saved
                         Promise.all(savePromises)
                             .then(() => {
-                                window.location.href = '/rss/dashboard?success=配置和模式保存成功';
+                                window.location.href = '/rss/dashboard?success=Configuration and patterns saved successfully';
                             })
                             .catch(error => {
-                                console.error('保存模式失败:', error);
-                                alert('保存模式失败: ' + error.message);
-                                window.location.href = '/rss/dashboard?success=配置已保存，但部分模式保存失败';
+                                console.error('Failed to save patterns:', error);
+                                alert('Failed to save patterns: ' + error.message);
+                                window.location.href = '/rss/dashboard?success=Configuration saved, but some patterns failed to save';
                             });
                     });
                 } else {
-                    alert(data.message || '保存配置失败');
+                    _restoreSaveBtn();
+                    alert(data.message || 'Failed to save configuration');
                 }
             })
             .catch(error => {
-                console.error('保存配置失败:', error);
-                alert('保存配置失败，请重试');
+                console.error('Failed to save configuration:', error);
+                _restoreSaveBtn();
+                alert('Failed to save configuration, please try again');
             });
         }
 
-        // 复制配置设置到当前表单
+        // Copy config settings to the current form
         function copyConfigSettings() {
             const copyConfigId = parseInt(document.getElementById('copy_config').value);
             if (!copyConfigId) {
-                alert('请选择一个配置进行复制');
+                alert('Please select a configuration to copy');
                 return;
             }
             
             const sourceConfig = configs.find(c => c.id === copyConfigId);
             if (sourceConfig) {
-                // 填充表单字段，但不修改规则ID
+                // Fill form fields, but leave rule ID unchanged
                 document.getElementById('rule_title').value = sourceConfig.rule_title;
                 document.getElementById('rule_description').value = sourceConfig.rule_description;
                 document.getElementById('language').value = sourceConfig.language;
@@ -1521,10 +1675,10 @@
                 document.getElementById('is_auto_markdown_to_html').checked = sourceConfig.is_auto_markdown_to_html;
                 document.getElementById('is_ai_extract').checked = sourceConfig.is_ai_extract;
                 
-                // 设置AI提取提示词
+                // Set AI extraction prompt
                 if (sourceConfig.ai_extract_prompt) {
                     document.getElementById('ai_extract_prompt').value = sourceConfig.ai_extract_prompt;
-                    console.log('复制的AI提取提示词:', sourceConfig.ai_extract_prompt);
+                    console.log('Copied AI extraction prompt:', sourceConfig.ai_extract_prompt);
                 } else {
                     document.getElementById('ai_extract_prompt').value = '';
                 }
@@ -1532,13 +1686,13 @@
                 document.getElementById('enable_custom_title_pattern').checked = sourceConfig.enable_custom_title_pattern;
                 document.getElementById('enable_custom_content_pattern').checked = sourceConfig.enable_custom_content_pattern;
                 
-                // 加载该配置的模式并显示成功提示
+                // Load patterns for this config and show success toast
                 loadPatternsForConfig(copyConfigId);
                 
             }
         }
 
-        // 测试正则表达式
+        // Test regex
         function testRegex() {
             const testPattern = document.getElementById('regex_test_pattern').value.trim();
             const testText = document.getElementById('regex_test_text').value.trim();
@@ -1546,36 +1700,36 @@
             const resultElement = document.getElementById('regex_test_result');
             const applyButton = document.getElementById('apply_regex_btn');
             
-            // 验证输入
+            // Validate input
             if (!testPattern) {
                 resultElement.className = 'alert alert-warning';
                 resultElement.style.display = 'block';
-                resultElement.textContent = '请输入正则表达式';
+                resultElement.textContent = 'Please enter a regex pattern';
                 applyButton.style.display = 'none';
                 return;
             }
-            
+
             if (!testText) {
                 resultElement.className = 'alert alert-warning';
                 resultElement.style.display = 'block';
-                resultElement.textContent = '请输入测试文本';
+                resultElement.textContent = 'Please enter test text';
                 applyButton.style.display = 'none';
                 return;
             }
-            
-            // 显示加载状态
+
+            // Show loading state
             resultElement.className = 'alert alert-info';
             resultElement.style.display = 'block';
-            resultElement.innerHTML = '<i class="bi bi-hourglass-split"></i> 正在测试...';
+            resultElement.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
             applyButton.style.display = 'none';
             
-            // 准备表单数据
+            // Prepare form data
             const formData = new FormData();
             formData.append('pattern', testPattern);
             formData.append('test_text', testText);
             formData.append('pattern_type', patternType);
             
-            // 发送请求
+            // Send request
             fetch('/rss/test-regex', {
                 method: 'POST',
                 body: formData
@@ -1584,63 +1738,63 @@
             .then(data => {
                 if (data.success) {
                     if (!data.matched) {
-                        // 未找到匹配
+                        // No match found
                         resultElement.className = 'alert alert-warning';
                         resultElement.innerHTML = '<i class="bi bi-x-circle"></i> ' + data.message;
                         applyButton.style.display = 'none';
                     } else if (!data.has_groups) {
-                        // 匹配但没有捕获组
+                        // Match found but no capture groups
                         resultElement.className = 'alert alert-warning';
                         resultElement.innerHTML = '<i class="bi bi-exclamation-triangle"></i> ' + data.message;
                         applyButton.style.display = 'none';
                     } else {
-                        // 成功匹配并有捕获组
+                        // Matched with capture groups
                         resultElement.className = 'alert alert-success';
-                        resultElement.innerHTML = '<i class="bi bi-check-circle"></i> 匹配成功！<br>' +
-                                                 '<strong>提取的内容:</strong> <span class="text-primary">' + 
+                        resultElement.innerHTML = '<i class="bi bi-check-circle"></i> Match successful!<br>' +
+                                                 '<strong>Extracted content:</strong> <span class="text-primary">' + 
                                                  data.extracted + '</span>';
                         
-                        // 显示应用按钮
+                        // Show apply button
                         applyButton.style.display = 'block';
-                        // 保存测试成功的正则表达式和类型到全局变量
+                        // Save successfully tested regex and type to global vars
                         window.lastSuccessfulRegex = {
                             pattern: testPattern,
                             type: patternType
                         };
                     }
                 } else {
-                    // 测试失败
+                    // Test failed
                     resultElement.className = 'alert alert-danger';
                     resultElement.innerHTML = '<i class="bi bi-exclamation-octagon"></i> ' + data.message;
                     applyButton.style.display = 'none';
                 }
             })
             .catch(error => {
-                console.error('测试正则表达式失败:', error);
+                console.error('Regex test failed:', error);
                 resultElement.className = 'alert alert-danger';
-                resultElement.innerHTML = '<i class="bi bi-exclamation-octagon"></i> 测试失败，请查看控制台错误';
+                resultElement.innerHTML = '<i class="bi bi-exclamation-octagon"></i> Test failed — check the console for errors';
                 applyButton.style.display = 'none';
             });
         }
         
-        // 应用测试成功的正则表达式到输入框
+        // Apply successfully tested regex to input
         function applyTestedRegex() {
             if (!window.lastSuccessfulRegex) {
                 return;
             }
             
-            // 将测试成功的正则表达式填充到主表单
+            // Populate main form with successfully tested regex
             document.getElementById('new_pattern').value = window.lastSuccessfulRegex.pattern;
             document.getElementById('new_pattern_type').value = window.lastSuccessfulRegex.type;
             
-            // 关闭测试区域
+            // Close test area
             const bsCollapse = bootstrap.Collapse.getInstance(document.getElementById('regexTestArea'));
             if (bsCollapse) {
                 bsCollapse.hide();
             }
         }
 
-        // 设置删除确认模态框
+        // Set up delete confirmation modal
         document.getElementById('deleteModal').addEventListener('show.bs.modal', function (event) {
             const button = event.relatedTarget;
             const ruleId = button.getAttribute('data-rule-id');
@@ -1648,7 +1802,7 @@
         });
 
         function copyFullRssLink(ruleId) {
-            // 获取完整的RSS链接
+            // Get full RSS link
             const rssLink = getFullRssLink(ruleId);
             
             navigator.clipboard.writeText(rssLink).then(() => {
@@ -1659,19 +1813,19 @@
                     copySuccess.classList.remove('show');
                 }, 2000);
             }).catch(err => {
-                console.error('复制失败:', err);
-                alert('复制失败，请手动复制');
+                console.error('Copy failed:', err);
+                alert('Copy failed — please copy manually');
             });
         }
         
-        // 生成完整的RSS链接（使用服务器配置或当前域名）
+        // Generate full RSS link (uses server config or current hostname)
         function getFullRssLink(ruleId) {
-            // 使用服务器端提供的配置（如果存在）或当前域名
+            // Use server-provided config if available, otherwise fall back to current origin
             const baseUrl = '{{ rss_base_url }}' || window.location.origin;
             return `${baseUrl}/rss/feed/${ruleId}`;
         }
 
-        // 页面加载后更新所有RSS链接显示完整URL
+        // Update all RSS links to show full URLs after page load
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('[id^="rss-link-"]').forEach(element => {
                 const ruleId = element.id.replace('rss-link-', '');
@@ -1679,65 +1833,65 @@
                 element.textContent = fullLink;
             });
             
-            // 初始化时禁用已配置的规则ID
+            // Disable already-configured rule IDs on init
             disableConfiguredRules();
         });
 
         function autoFillTitle() {
             const ruleSelect = document.getElementById('rule_id');
-            // 检查是否有选中的选项
+            // Check if there is a selected option
             if (ruleSelect.selectedIndex > 0) {
-                // 获取选中选项的文本，格式为 "ID - 源名称 → 目标名称"
+                // Get selected option text, format: "ID - source → target"
                 const selectedText = ruleSelect.options[ruleSelect.selectedIndex].text;
                 
-                // 使用正则表达式提取源聊天名称（箭头前面的部分）
+                // Use regex to extract source chat name (part before arrow)
                 const match = selectedText.match(/\d+\s*-\s*([^→]+)→/);
                 if (match && match[1]) {
-                    // 设置RSS标题为"来自 源聊天名称"
+                    // Set RSS title to "From <source chat name>"
                     const sourceName = match[1].trim();
-                    document.getElementById('rule_title').value = `来自 ${sourceName}`;
+                    document.getElementById('rule_title').value = `From ${sourceName}`;
                 }
             } else {
-                alert('请先选择一个规则');
+                alert('Please select a rule first');
             }
         }
 
-        // 修改密码
+        // Change password
         function changePassword() {
             const currentPassword = document.getElementById('current_password').value;
             const newPassword = document.getElementById('new_password').value;
             const confirmPassword = document.getElementById('confirm_password').value;
             const errorElement = document.getElementById('password_error');
             
-            // 清除之前的错误信息
+            // Clear previous error messages
             errorElement.style.display = 'none';
             
-            // 基本验证
+            // Basic validation
             if (!currentPassword) {
-                errorElement.textContent = '请输入当前密码';
+                errorElement.textContent = 'Please enter your current password';
                 errorElement.style.display = 'block';
                 return;
             }
-            
+
             if (!newPassword) {
-                errorElement.textContent = '请输入新密码';
+                errorElement.textContent = 'Please enter a new password';
                 errorElement.style.display = 'block';
                 return;
             }
-            
+
             if (newPassword.length < 8) {
-                errorElement.textContent = '新密码长度必须至少为8个字符';
+                errorElement.textContent = 'New password must be at least 8 characters';
                 errorElement.style.display = 'block';
                 return;
             }
-            
+
             if (newPassword !== confirmPassword) {
-                errorElement.textContent = '新密码和确认密码不一致';
+                errorElement.textContent = 'New password and confirmation do not match';
                 errorElement.style.display = 'block';
                 return;
             }
             
-            // 提交表单数据
+            // Submit form data
             const formData = new FormData();
             formData.append('current_password', currentPassword);
             formData.append('new_password', newPassword);
@@ -1750,33 +1904,81 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // 显示成功消息并关闭模态框
+                    // Show success message and close modal
                     const modal = bootstrap.Modal.getInstance(document.getElementById('changePasswordModal'));
                     modal.hide();
                     
-                    // 清空表单
+                    // Clear form
                     document.getElementById('changePasswordForm').reset();
                     
-                    // 显示全局成功消息（重用复制成功的提示框）
+                    // Show global success toast (reuse copy-success toast)
                     const successElement = document.getElementById('copySuccess');
-                    successElement.textContent = '密码修改成功';
+                    successElement.textContent = 'Password changed successfully';
                     successElement.classList.add('show');
                     
                     setTimeout(() => {
                         successElement.classList.remove('show');
                     }, 2000);
                 } else {
-                    // 显示错误消息
-                    errorElement.textContent = data.message || '修改密码失败';
+                    // Show error message
+                    errorElement.textContent = data.message || 'Failed to change password';
                     errorElement.style.display = 'block';
                 }
             })
             .catch(error => {
-                console.error('修改密码失败:', error);
-                errorElement.textContent = '修改密码请求失败，请重试';
+                console.error('Change password request failed:', error);
+                errorElement.textContent = 'Password change request failed, please try again';
                 errorElement.style.display = 'block';
             });
         }
+    </script>
+
+    <script>
+    // Telegram Mini App integration
+    (function () {
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (!tg) return; // Running in a regular browser — nothing to do
+
+        // Tell Telegram the app is ready and expand to full height
+        tg.ready();
+        tg.expand();
+        document.body.classList.add('tg-webapp'); // Activate Mini App styles
+
+        // Apply Telegram theme colors to Bootstrap components
+        document.documentElement.style.setProperty('--bs-primary', tg.themeParams.button_color || '#667eea');
+        document.documentElement.style.setProperty('--bs-link-color', tg.themeParams.link_color || '#667eea');
+
+        // If we already have a valid session cookie, nothing to do
+        // If not, authenticate via Telegram initData
+        fetch('/auth/telegram', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ initData: tg.initData })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                // Auth failed — show a Telegram-native error popup
+                tg.showAlert('Authentication failed. Please reopen the dashboard from the bot.');
+            }
+            // On success the server set the access_token cookie.
+            // Reload so the page renders with the authenticated session.
+            window.location.reload();
+        })
+        .catch(() => {
+            // Network error or already logged in — ignore silently
+        });
+
+        // Wire the Telegram back button to close the Mini App
+        tg.BackButton.onClick(() => tg.close());
+        if (document.referrer) {
+            tg.BackButton.show();
+        }
+
+        // Use Telegram's MainButton for prominent "Save" actions if needed
+        // (currently no persistent save needed — all saves are per-form)
+    })();
     </script>
 </body>
 </html> 

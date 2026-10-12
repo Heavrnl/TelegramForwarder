@@ -18,65 +18,65 @@ logger = logging.getLogger(__name__)
 
 async def process_forward_rule(client, event, chat_id, rule):
     """
-    处理转发规则
-    
+    Process a forwarding rule.
+
     Args:
-        client: 机器人客户端
-        event: 消息事件
-        chat_id: 聊天ID
-        rule: 转发规则
-        
+        client: bot client
+        event: message event
+        chat_id: chat ID
+        rule: forwarding rule
+
     Returns:
-        bool: 处理是否成功
+        bool: whether processing succeeded
     """
-    logger.info(f'使用过滤器链处理规则 ID: {rule.id}')
-    
-    # 创建过滤器链
+    logger.info(f'Processing rule ID: {rule.id} using filter chain')
+
+    # Create the filter chain
     filter_chain = FilterChain()
 
-    # 添加初始化过滤器
+    # Add the initialization filter
     filter_chain.add_filter(InitFilter())
 
-    # 延迟处理过滤器（如果启用了延迟处理）
+    # Delay filter (if delay processing is enabled)
     filter_chain.add_filter(DelayFilter())
-    
-    # 添加关键字过滤器（如果消息不匹配关键字，会中断处理链）
+
+    # Add the keyword filter (breaks the chain if the message doesn't match keywords)
     filter_chain.add_filter(KeywordFilter())
-    
-    # 添加替换过滤器
+
+    # Add the replace filter
     filter_chain.add_filter(ReplaceFilter())
 
-    # 添加媒体过滤器（处理媒体内容）
+    # Add the media filter (handles media content)
     filter_chain.add_filter(MediaFilter())
-    
-    # 添加AI处理过滤器（如果启用了AI处理后的关键字检查，可能会中断处理链）
+
+    # Add the AI filter (may break the chain if keyword check after AI processing fails)
     filter_chain.add_filter(AIFilter())
-    
-    # 添加信息过滤器（处理原始链接和发送者信息）
+
+    # Add the info filter (handles original link and sender info)
     filter_chain.add_filter(InfoFilter())
-    
-    # 添加评论区按钮过滤器
+
+    # Add the comment button filter
     filter_chain.add_filter(CommentButtonFilter())
 
-    # 添加RSS过滤器
+    # Add the RSS filter
     filter_chain.add_filter(RSSFilter())
-    
-    # 添加编辑过滤器（编辑原始消息）
+
+    # Add the edit filter (edits the original message)
     filter_chain.add_filter(EditFilter())
 
-    # 添加发送过滤器（发送消息）
+    # Add the sender filter (sends the message)
     filter_chain.add_filter(SenderFilter())
-    
-    # 添加回复过滤器（处理媒体组消息的评论区按钮）
+
+    # Add the reply filter (handles comment buttons for media group messages)
     filter_chain.add_filter(ReplyFilter())
 
-    # 添加推送过滤器
+    # Add the push filter
     filter_chain.add_filter(PushFilter())
-    
-    # 添加删除原始消息过滤器（最后执行）
+
+    # Add the delete-original filter (runs last)
     filter_chain.add_filter(DeleteOriginalFilter())
-    
-    # 执行过滤器链
+
+    # Execute the filter chain
     result = await filter_chain.process(client, event, chat_id, rule)
-    
-    return result 
+
+    return result

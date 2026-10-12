@@ -10,86 +10,86 @@ logger = logging.getLogger(__name__)
 
 class EditFilter(BaseFilter):
     """
-    编辑过滤器，用于在编辑模式下修改原始消息
-    仅在频道消息中生效
+    Edit filter — modifies the original message when the rule is in edit mode.
+    Only takes effect on channel messages.
     """
-    
+
     async def _process(self, context):
         """
-        处理消息编辑
-        
+        Handle message editing.
+
         Args:
-            context: 消息上下文
-            
+            context: message context
+
         Returns:
-            bool: 是否继续处理
+            bool: whether to continue processing
         """
         rule = context.rule
         event = context.event
 
-        
 
-        logger.debug(f"开始处理编辑过滤器，消息ID: {event.message.id}, 聊天ID: {event.chat_id}")
-        
-        # 如果不是编辑模式，继续后续处理
+
+        logger.debug(f"Edit filter starting — message ID: {event.message.id}, chat ID: {event.chat_id}")
+
+        # If not in edit mode, continue to next filter
         if rule.handle_mode != HandleMode.EDIT:
-            logger.debug(f"当前规则非编辑模式 (当前模式: {rule.handle_mode})，跳过编辑处理")
+            logger.debug(f"Rule is not in edit mode (current mode: {rule.handle_mode}), skipping edit processing")
             return True
-            
-        # 检查是否为频道消息
+
+        # Check if this is a channel message
         chat = await event.get_chat()
-        logger.debug(f"聊天类型: {type(chat).__name__}, 聊天ID: {chat.id}, 聊天标题: {getattr(chat, 'title', '未知')}")
-        
+        logger.debug(f"Chat type: {type(chat).__name__}, chat ID: {chat.id}, chat title: {getattr(chat, 'title', 'unknown')}")
+
         if not isinstance(chat, Channel):
-            logger.info(f"不是频道消息 (聊天类型: {type(chat).__name__})，跳过编辑")
+            logger.info(f"Not a channel message (chat type: {type(chat).__name__}), skipping edit")
             return False
-            
+
         try:
-            # 获取用户客户端
-            logger.debug("尝试获取用户客户端")
+            # Get user client
+            logger.debug("Attempting to get user client")
             main = await get_main_module()
             user_client = main.user_client if (main and hasattr(main, 'user_client')) else None
-            
+
             if not user_client:
-                logger.error("无法获取用户客户端，无法执行编辑操作")
+                logger.error("Unable to get user client, cannot perform edit")
                 return False
-            
-            logger.debug("成功获取用户客户端")
-                
-            # 根据预览模式设置 link_preview
+
+            logger.debug("Successfully obtained user client")
+
+            # Set link_preview based on preview mode
             link_preview = {
                 PreviewMode.ON: True,
                 PreviewMode.OFF: False,
-                PreviewMode.FOLLOW: event.message.media is not None  # 跟随原消息
+                PreviewMode.FOLLOW: event.message.media is not None  # Follow the original message
             }[rule.is_preview]
-            
-            logger.debug(f"预览模式: {rule.is_preview}, link_preview值: {link_preview}")
-            
-            # 组合消息文本
+
+            logger.debug(f"Preview mode: {rule.is_preview}, link_preview value: {link_preview}")
+
+            # Compose message text
             message_text = context.sender_info + context.message_text + context.time_info + context.original_link
-            
-            logger.debug(f"原始消息文本: '{event.message.text}'")
-            logger.debug(f"新消息文本: '{message_text}'")
-            
-            # 检查文本是否有变化
+
+            logger.debug(f"Original message text: '{event.message.text}'")
+            logger.debug(f"New message text: '{message_text}'")
+
+            # Check if the text has changed
             if message_text == event.message.text:
-                logger.info("消息文本没有变化，跳过编辑")
+                logger.info("Message text unchanged, skipping edit")
                 return False
-            
-            # 处理媒体组消息
+
+            # Handle media group messages
             if context.is_media_group:
-                logger.info(f"处理媒体组消息，媒体组ID: {context.media_group_id}, 消息数量: {len(context.media_group_messages) if context.media_group_messages else '未知'}")
-                # 尝试编辑媒体组中的每条消息
+                logger.info(f"Processing media group, group ID: {context.media_group_id}, message count: {len(context.media_group_messages) if context.media_group_messages else 'unknown'}")
+                # Try to edit each message in the media group
                 if not context.media_group_messages:
-                    logger.warning("媒体组消息列表为空，无法编辑")
+                    logger.warning("Media group message list is empty, cannot edit")
                     return False
-                    
+
                 for message in context.media_group_messages:
                     try:
-                        # 只在第一条消息上添加文本
+                        # Only add text to the first message
                         text_to_edit = message_text if message.id == event.message.id else ""
-                        logger.debug(f"尝试编辑媒体组消息 {message.id}, 媒体类型: {type(message.media).__name__ if message.media else '无媒体'}")
-                        
+                        logger.debug(f"Attempting to edit media group message {message.id}, media type: {type(message.media).__name__ if message.media else 'no media'}")
+
                         await user_client.edit_message(
                             event.chat_id,
                             message.id,
@@ -97,21 +97,21 @@ class EditFilter(BaseFilter):
                             parse_mode=rule.message_mode.value,
                             link_preview=link_preview
                         )
-                        logger.info(f"成功编辑媒体组消息 {message.id}")
+                        logger.info(f"Successfully edited media group message {message.id}")
                     except Exception as e:
                         error_details = str(e)
                         if "was not modified" not in error_details:
-                            logger.error(f"编辑媒体组消息 {message.id} 失败: {error_details}")
-                            logger.debug(f"异常详情: {traceback.format_exc()}")
+                            logger.error(f"Failed to edit media group message {message.id}: {error_details}")
+                            logger.debug(f"Exception details: {traceback.format_exc()}")
                         else:
-                            logger.debug(f"媒体组消息 {message.id} 内容未修改，无需编辑")
+                            logger.debug(f"Media group message {message.id} content unchanged, no edit needed")
                 return False
-            # 处理所有其他消息（包括单条媒体消息和纯文本消息）
+            # Handle all other messages (single media and plain text)
             else:
                 try:
-                    logger.debug(f"尝试编辑单条消息 {event.message.id}, 消息类型: {type(event.message).__name__}, 媒体类型: {type(event.message.media).__name__ if event.message.media else '无媒体'}")
-                    logger.debug(f"使用解析模式: {rule.message_mode.value}")
-                    
+                    logger.debug(f"Attempting to edit single message {event.message.id}, message type: {type(event.message).__name__}, media type: {type(event.message.media).__name__ if event.message.media else 'no media'}")
+                    logger.debug(f"Using parse mode: {rule.message_mode.value}")
+
                     await user_client.edit_message(
                         event.chat_id,
                         event.message.id,
@@ -119,21 +119,21 @@ class EditFilter(BaseFilter):
                         parse_mode=rule.message_mode.value,
                         link_preview=link_preview
                     )
-                    logger.info(f"成功编辑消息 {event.message.id}")
+                    logger.info(f"Successfully edited message {event.message.id}")
                     return False
                 except Exception as e:
                     error_details = str(e)
                     if "was not modified" not in error_details:
-                        logger.error(f"编辑消息 {event.message.id} 失败: {error_details}")
-                        logger.debug(f"尝试编辑的消息ID: {event.message.id}, 聊天ID: {event.chat_id}")
-                        logger.debug(f"消息文本长度: {len(message_text)}, 解析模式: {rule.message_mode.value}")
-                        logger.debug(f"异常详情: {traceback.format_exc()}")
+                        logger.error(f"Failed to edit message {event.message.id}: {error_details}")
+                        logger.debug(f"Message ID attempted: {event.message.id}, chat ID: {event.chat_id}")
+                        logger.debug(f"Message text length: {len(message_text)}, parse mode: {rule.message_mode.value}")
+                        logger.debug(f"Exception details: {traceback.format_exc()}")
                     else:
-                        logger.debug(f"消息 {event.message.id} 内容未修改，无需编辑")
+                        logger.debug(f"Message {event.message.id} content unchanged, no edit needed")
                     return False
-                
+
         except Exception as e:
-            logger.error(f"编辑过滤器处理出错: {str(e)}")
-            logger.debug(f"异常详情: {traceback.format_exc()}")
-            logger.debug(f"上下文信息 - 消息ID: {event.message.id}, 聊天ID: {event.chat_id}, 规则ID: {rule.id if hasattr(rule, 'id') else '未知'}")
-            return False 
+            logger.error(f"Edit filter processing error: {str(e)}")
+            logger.debug(f"Exception details: {traceback.format_exc()}")
+            logger.debug(f"Context info — message ID: {event.message.id}, chat ID: {event.chat_id}, rule ID: {rule.id if hasattr(rule, 'id') else 'unknown'}")
+            return False

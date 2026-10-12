@@ -2,7 +2,7 @@ services:
   telegram-forwarder:
     image: heavrnl/telegramforwarder:latest
     container_name: telegram-forwarder
-    # 如果需要使用 RSS 功能，请取消以下注释
+    # Uncomment the following to enable RSS access
     # ports:
     #   - 9804:8000
     restart: unless-stopped

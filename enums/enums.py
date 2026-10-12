@@ -1,6 +1,6 @@
 import enum
 
-# 四个模式，仅黑名单，仅白名单，先黑名单后白名单，先白名单后黑名单
+# Four modes: blacklist only, whitelist only, blacklist then whitelist, whitelist then blacklist
 class ForwardMode(enum.Enum):
     WHITELIST = 'whitelist'
     BLACKLIST = 'blacklist'
@@ -11,7 +11,7 @@ class ForwardMode(enum.Enum):
 class PreviewMode(enum.Enum):
     ON = 'on'
     OFF = 'off'
-    FOLLOW = 'follow'  # 跟随原消息的预览设置
+    FOLLOW = 'follow'  # Follow the preview setting of the original message
 
 class MessageMode(enum.Enum):
     MARKDOWN = 'Markdown'

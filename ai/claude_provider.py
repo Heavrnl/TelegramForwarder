@@ -13,21 +13,21 @@ class ClaudeProvider(BaseAIProvider):
         self.default_model = 'claude-3-5-sonnet-latest'
         
     async def initialize(self, **kwargs):
-        """初始化Claude客户端"""
+        """Initialize Claude client"""
         api_key = os.getenv('CLAUDE_API_KEY')
         if not api_key:
-            raise ValueError("未设置CLAUDE_API_KEY环境变量")
+            raise ValueError("CLAUDE_API_KEY environment variable not set")
             
-        # 检查是否配置了自定义API基础URL
+        # Check for custom API base URL
         api_base = os.getenv('CLAUDE_API_BASE', '').strip()
         if api_base:
-            logger.info(f"使用自定义Claude API基础URL: {api_base}")
+            logger.info(f"Using custom Claude API base URL: {api_base}")
             self.client = anthropic.Anthropic(
                 api_key=api_key,
                 base_url=api_base
             )
         else:
-            # 使用默认URL
+            # Use default URL
             self.client = anthropic.Anthropic(api_key=api_key)
             
         self.model = kwargs.get('model', self.default_model)
@@ -37,28 +37,28 @@ class ClaudeProvider(BaseAIProvider):
                             prompt: Optional[str] = None,
                             images: Optional[List[Dict[str, str]]] = None,
                             **kwargs) -> str:
-        """处理消息"""
+        """Process a message"""
         try:
             if not self.client:
                 await self.initialize(**kwargs)
                 
-            # 构建消息列表
+            # Build message list
             messages = []
             if prompt:
                 messages.append({"role": "system", "content": prompt})
             
-            # 如果有图片，需要添加到消息中
+            # If images are present, add them to the message
             if images and len(images) > 0:
-                # 构建包含图片的内容列表
+                # Build content list with images
                 content = []
                 
-                # 添加文本
+                # Add text
                 content.append({
                     "type": "text",
                     "text": message
                 })
                 
-                # 添加每张图片
+                # Add each image
                 for img in images:
                     content.append({
                         "type": "image",
@@ -68,21 +68,21 @@ class ClaudeProvider(BaseAIProvider):
                             "data": img["data"]
                         }
                     })
-                    logger.info(f"已添加一张类型为 {img['mime_type']} 的图片，大小约 {len(img['data']) // 1000} KB")
+                    logger.info(f"Added image type {img['mime_type']}, ~{len(img['data']) // 1000} KB")
                 
-                # 添加用户消息
+                # Add user message
                 messages.append({"role": "user", "content": content})
             else:
-                # 没有图片，只添加文本
+                # No images, add text only
                 messages.append({"role": "user", "content": message})
             
-            # 使用流式输出 - 按照官方文档正确实现
+            # Use streaming — per official docs
             with self.client.messages.stream(
                 model=self.model,
                 max_tokens=4096,
                 messages=messages
             ) as stream:
-                # 使用专用的text_stream迭代器直接获取文本
+                # Use text_stream iterator to get text directly
                 full_response = ""
                 for text in stream.text_stream:
                     full_response += text
@@ -90,5 +90,5 @@ class ClaudeProvider(BaseAIProvider):
             return full_response
             
         except Exception as e:
-            logger.error(f"Claude API 调用失败: {str(e)}")
-            return f"AI处理失败: {str(e)}" 
+            logger.error(f"Claude API call failed: {str(e)}")
+            return f"AI processing failed: {str(e)}" 

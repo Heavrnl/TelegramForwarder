@@ -1,13 +1,13 @@
 FROM python:3.11-slim
 
-# 设置工作目录
+# Set working directory
 WORKDIR /app
 
-# 设置Docker日志配置
+# Set Docker log configuration
 ENV DOCKER_LOG_MAX_SIZE=10m
 ENV DOCKER_LOG_MAX_FILE=3
 
-# 安装系统依赖
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     tzdata \
     && ln -fs /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
@@ -17,18 +17,18 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖文件并安装
+# Copy requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 创建临时文件目录
+# Create temp directory
 RUN mkdir -p /app/temp
 
-# 复制应用代码
+# Copy application code
 COPY . .
 
-# 设置环境变量
+# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# 启动命令
+# Start command
 CMD ["python", "main.py"]

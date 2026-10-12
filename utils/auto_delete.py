@@ -5,120 +5,120 @@ from functools import wraps
 from utils.constants import BOT_MESSAGE_DELETE_TIMEOUT, USER_MESSAGE_DELETE_ENABLE
 logger = logging.getLogger(__name__)
 
-# 从环境变量获取默认超时时间
+# Get default timeout from environment variable
 
 async def delete_after(message, seconds):
-    """等待指定秒数后删除消息
-    
-    参数:
-        message: 要删除的消息
-        seconds: 等待多少秒后删除, 0表示立即删除, -1表示不删除
+    """Wait the specified number of seconds, then delete the message.
+
+    Args:
+        message: the message to delete
+        seconds: seconds to wait before deleting; 0 = delete immediately, -1 = do not delete
     """
-    if seconds == -1:  # -1 表示不删除
+    if seconds == -1:  # -1 means do not delete
         return
-    
-    if seconds > 0:  # 正数表示等待指定秒数再删除
+
+    if seconds > 0:  # positive value means wait before deleting
         await asyncio.sleep(seconds)
-        
+
     try:
         await message.delete()
     except Exception as e:
-        logger.error(f"删除消息失败: {e}")
+        logger.error(f"Failed to delete message: {e}")
 
 async def reply_and_delete(event, text, delete_after_seconds=None, **kwargs):
-    """回复消息并安排自动删除
-    
-    参数:
-        event: Telethon事件对象
-        text: 要发送的文本
-        delete_after_seconds: 多少秒后删除消息，None使用默认值，0表示立即删除，-1表示不删除
-        **kwargs: 传递给reply方法的其他参数
+    """Reply to a message and schedule automatic deletion.
+
+    Args:
+        event: Telethon event object
+        text: text to send
+        delete_after_seconds: seconds before deleting; None uses the default, 0 = immediate, -1 = never
+        **kwargs: additional arguments passed to the reply method
     """
-    # 如果没有指定删除时间，使用环境变量中的默认值
+    # If no delete time specified, use the value from the environment variable
     if delete_after_seconds is None:
         deletion_timeout = BOT_MESSAGE_DELETE_TIMEOUT
     else:
         deletion_timeout = delete_after_seconds
-    
-    # 发送回复
+
+    # Send reply
     message = await event.reply(text, **kwargs)
-    
-    # 安排删除任务，只有当deletion_timeout不等于-1时才删除
+
+    # Schedule deletion task; only schedule if deletion_timeout is not -1
     if deletion_timeout != -1:
         asyncio.create_task(delete_after(message, deletion_timeout))
-    
+
     return message
 
 async def respond_and_delete(event, text, delete_after_seconds=None, **kwargs):
-    """使用respond回复消息并安排自动删除
-    
-    参数:
-        event: Telethon事件对象
-        text: 要发送的文本
-        delete_after_seconds: 多少秒后删除消息，None使用默认值，0表示立即删除，-1表示不删除
-        **kwargs: 传递给respond方法的其他参数
+    """Respond to a message and schedule automatic deletion.
+
+    Args:
+        event: Telethon event object
+        text: text to send
+        delete_after_seconds: seconds before deleting; None uses the default, 0 = immediate, -1 = never
+        **kwargs: additional arguments passed to the respond method
     """
-    # 如果没有指定删除时间，使用环境变量中的默认值
+    # If no delete time specified, use the value from the environment variable
     if delete_after_seconds is None:
         deletion_timeout = BOT_MESSAGE_DELETE_TIMEOUT
     else:
         deletion_timeout = delete_after_seconds
-    
-    # 发送回复
+
+    # Send response
     message = await event.respond(text, **kwargs)
-    
-    # 安排删除任务，只有当deletion_timeout不等于-1时才删除
+
+    # Schedule deletion task; only schedule if deletion_timeout is not -1
     if deletion_timeout != -1:
         asyncio.create_task(delete_after(message, deletion_timeout))
-    
+
     return message
 
 async def send_message_and_delete(client, entity, text, delete_after_seconds=None, **kwargs):
-    """发送消息并安排自动删除
-    
-    参数:
-        client: Telethon客户端对象
-        entity: 聊天对象或ID
-        text: 要发送的文本
-        delete_after_seconds: 多少秒后删除消息，None使用默认值，0表示立即删除，-1表示不删除
-        **kwargs: 传递给send_message方法的其他参数
+    """Send a message and schedule automatic deletion.
+
+    Args:
+        client: Telethon client object
+        entity: chat object or ID
+        text: text to send
+        delete_after_seconds: seconds before deleting; None uses the default, 0 = immediate, -1 = never
+        **kwargs: additional arguments passed to send_message
     """
-    # 如果没有指定删除时间，使用环境变量中的默认值
+    # If no delete time specified, use the value from the environment variable
     if delete_after_seconds is None:
         deletion_timeout = BOT_MESSAGE_DELETE_TIMEOUT
     else:
         deletion_timeout = delete_after_seconds
-    
-    # 发送消息
+
+    # Send message
     message = await client.send_message(entity, text, **kwargs)
-    
-    # 安排删除任务，只有当deletion_timeout不等于-1时才删除
+
+    # Schedule deletion task; only schedule if deletion_timeout is not -1
     if deletion_timeout != -1:
         asyncio.create_task(delete_after(message, deletion_timeout))
-    
+
     return message
 
-# 删除用户消息
+# Delete a user message
 async def async_delete_user_message(client, chat_id, message_id, seconds):
-    """删除用户消息
-    
-    参数:
-        client: bot客户端
-        chat_id: 聊天ID
-        message_id: 消息ID
-        seconds: 等待多少秒后删除, 0表示立即删除, -1表示不删除
+    """Delete a user message.
+
+    Args:
+        client: bot client
+        chat_id: chat ID
+        message_id: message ID
+        seconds: seconds to wait before deleting; 0 = immediate, -1 = do not delete
     """
     if USER_MESSAGE_DELETE_ENABLE == "false":
         return
-    
-    if seconds == -1:  # -1 表示不删除
+
+    if seconds == -1:  # -1 means do not delete
         return
-        
-    if seconds > 0:  # 正数表示等待指定秒数再删除
+
+    if seconds > 0:  # positive value means wait before deleting
         await asyncio.sleep(seconds)
-        
+
     try:
         await client.delete_messages(chat_id, message_id)
     except Exception as e:
-        logger.error(f"删除用户消息失败: {e}")
+        logger.error(f"Failed to delete user message: {e}")
 

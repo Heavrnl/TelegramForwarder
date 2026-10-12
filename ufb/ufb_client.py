@@ -12,11 +12,11 @@ import logging
 logger = logging.getLogger(__name__)
 
 async def get_main_module():
-    """获取 main 模块"""
+    """Get the main module"""
     try:
         return sys.modules['__main__']
     except KeyError:
-        # 如果找不到 main 模块，尝试手动导入
+        # If the main module is not found, try importing it manually
         spec = importlib.util.spec_from_file_location(
             "main",
             os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py")
@@ -26,7 +26,7 @@ async def get_main_module():
         return main
 
 async def get_db_ops():
-    """获取 main.py 中的 db_ops 实例"""
+    """Get the db_ops instance from main.py"""
     main = await get_main_module()
     if main.db_ops is None:
         main.db_ops = await main.init_db_ops()
@@ -34,132 +34,132 @@ async def get_db_ops():
 
 class UFBClient:
     def __init__(self, config_dir: str = "./ufb/config"):
-        # 获取当前文件所在目录（ufb目录）
+        # Get the directory containing this file (the ufb directory)
         current_file_dir = Path(__file__).parent
-        # 获取项目根目录（当前文件的上级目录）
+        # Get the project root (parent of the current file's directory)
         project_root = current_file_dir.parent
-        
+
         self.server_url: Optional[str] = None
         self.token: Optional[str] = None
-        
-        # 使用项目根目录作为基准
+
+        # Use the project root as the reference point
         self.config_dir = (project_root / config_dir).resolve()
-        # logger.info(f"配置目录: {self.config_dir}")
-        
+        # logger.info(f"Config directory: {self.config_dir}")
+
         self.config_path = self.config_dir / "config.json"
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.is_connected = False
         self.on_config_update_callbacks: list[Callable[[Dict[str, Any]], None]] = []
-        self.reconnect_task = None  # 用于存储重连任务
-        
-        # 确保配置目录存在
+        self.reconnect_task = None  # Stores the reconnection task
+
+        # Ensure the config directory exists
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     async def ensure_config_dir(self):
-        """确保配置目录存在"""
+        """Ensure the config directory exists"""
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
     def load_config(self) -> Dict[str, Any]:
-        """加载本地配置"""
+        """Load local configuration"""
         if self.config_path.exists():
             try:
                 return json.loads(self.config_path.read_text(encoding='utf-8'))
             except json.JSONDecodeError:
-                logger.error("配置文件损坏")
+                logger.error("Config file is corrupted")
                 return {}
         return {}
 
     async def save_config(self, config: Dict[str, Any], to_client: bool = False):
-        """保存配置到本地"""
-        logger.info(f"保存配置到本地: {self.config_path.absolute()}")
+        """Save configuration to local disk"""
+        logger.info(f"Saving config to local disk: {self.config_path.absolute()}")
         self.config_path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding='utf-8')
         if to_client:
             db_ops = await get_db_ops()
             await db_ops.sync_from_json(config)
-    
+
 
     def merge_configs(self, local_config: Dict[str, Any], cloud_config: Dict[str, Any]) -> Dict[str, Any]:
-        """递归合并本地和云端配置
-        策略：
-        1. 如果本地配置为空，使用云端配置
-        2. 如果是字典类型，递归合并
-        3. 如果是列表类型，合并列表（去重）
-        4. 如果是其他类型，使用云端的值覆盖本地值
+        """Recursively merge local and cloud configurations.
+        Strategy:
+        1. If local config is empty, use the cloud config.
+        2. If the value is a dict, merge recursively.
+        3. If the value is a list, merge and deduplicate.
+        4. For all other types, overwrite the local value with the cloud value.
         """
-        # 如果本地配置为空，直接使用云端配置
+        # If local config is empty, use cloud config directly
         if not local_config:
             return cloud_config.copy()
-        
-        # 如果云端配置为空，使用本地配置
+
+        # If cloud config is empty, use local config
         if not cloud_config:
             return local_config.copy()
 
-        # 开始递归合并
+        # Begin recursive merge
         merged = local_config.copy()
-        
+
         for key, cloud_value in cloud_config.items():
-            # 如果是字典类型，递归合并
+            # If the value is a dict, merge recursively
             if isinstance(cloud_value, dict):
                 if key not in merged:
                     merged[key] = {}
                 if isinstance(merged[key], dict):
                     merged[key] = self.merge_configs(merged[key], cloud_value)
                 else:
-                    # 如果本地值不是字典类型，但云端是字典类型，使用云端的值
+                    # Local value is not a dict but cloud value is; use cloud value
                     merged[key] = cloud_value.copy()
-            # 如果是列表类型，合并列表
+            # If the value is a list, merge and deduplicate
             elif isinstance(cloud_value, list):
                 if key not in merged or not isinstance(merged[key], list):
                     merged[key] = cloud_value.copy()
                 else:
-                    # 合并列表，去重
+                    # Merge lists, removing duplicates
                     merged_list = merged[key].copy()
                     for item in cloud_value:
                         if item not in merged_list:
                             merged_list.append(item)
                     merged[key] = merged_list
             else:
-                # 非字典和列表类型，使用云端的值
+                # Non-dict, non-list: use cloud value
                 merged[key] = cloud_value
 
         return merged
 
     def on_config_update(self, callback: Callable[[Dict[str, Any]], None]):
-        """注册配置更新回调"""
+        """Register a config update callback"""
         self.on_config_update_callbacks.append(callback)
 
     def notify_config_update(self, config: Dict[str, Any]):
-        """通知所有监听器配置已更新"""
+        """Notify all listeners that the config has been updated"""
         for callback in self.on_config_update_callbacks:
             try:
                 callback(config)
             except Exception as e:
-                logger.error(f"配置更新回调执行失败: {e}")
+                logger.error(f"Config update callback failed: {e}")
 
     async def handle_config_conflict(self, conflict_data: Dict[str, Any], local_config: Dict[str, Any]) -> Dict[str, Any]:
-        """处理配置冲突
-        返回最终使用的配置
+        """Handle a configuration conflict.
+        Returns the final configuration to use.
         """
-        logger.info(f"配置冲突: \n云端时间: {conflict_data['cloudTime']}\n本地时间: {conflict_data['localTime']}")
-        
-        # 总是选择使用云端配置
+        logger.info(f"Config conflict: \nCloud time: {conflict_data['cloudTime']}\nLocal time: {conflict_data['localTime']}")
+
+        # Always choose to use the cloud configuration
         await self.websocket.send(json.dumps({
             "type": "resolveConflict",
             "choice": "useCloud"
         }))
-        
-        # 等待服务器响应
+
+        # Wait for the server response
         cloud_config = json.loads(await self.websocket.recv())
-        logger.info(f"收到云端配置: {json.dumps(cloud_config, ensure_ascii=False, indent=2)}")
-        
-        # 合并云端和本地配置
+        logger.info(f"Received cloud config: {json.dumps(cloud_config, ensure_ascii=False, indent=2)}")
+
+        # Merge cloud and local configurations
         merged_config = self.merge_configs(local_config, cloud_config)
-        logger.info(f"合并后的配置: {json.dumps(merged_config, ensure_ascii=False, indent=2)}")
-        
+        logger.info(f"Merged config: {json.dumps(merged_config, ensure_ascii=False, indent=2)}")
+
         return merged_config
 
     async def connect(self, server_url: str, token: str):
-        """建立WebSocket连接"""
+        """Establish a WebSocket connection"""
         if self.is_connected:
             await self.close()
 
@@ -169,68 +169,68 @@ class UFBClient:
         try:
             self.websocket = await websockets.connect(f"{server_url}/ws/config/{token}")
             self.is_connected = True
-            logger.info("WebSocket连接已建立")
-            
-            # 连接成功后取消重连任务
+            logger.info("WebSocket connection established")
+
+            # Cancel reconnection task on successful connection
             if self.reconnect_task:
                 self.reconnect_task.cancel()
                 self.reconnect_task = None
-                
+
         except Exception as e:
-            logger.error(f"WebSocket连接失败: {e}")
-            # 启动重连
+            logger.error(f"WebSocket connection failed: {e}")
+            # Start reconnection
             await self.start_reconnect()
             raise
 
     async def reconnect(self):
-        """重连逻辑"""
+        """Reconnection loop"""
         while True:
             try:
                 if not self.is_connected and self.server_url and self.token:
-                    logger.info("尝试重新连接...")
+                    logger.info("Attempting to reconnect...")
                     self.websocket = await websockets.connect(f"{self.server_url}/ws/config/{self.token}")
                     self.is_connected = True
-                    logger.info("重连成功")
-                    
-                    # 重新启动消息处理
+                    logger.info("Reconnection successful")
+
+                    # Restart message handling
                     asyncio.create_task(self._handle_messages())
-                    
-                    # 重新发送配置更新
+
+                    # Re-send the config update
                     local_config = self.load_config()
                     await self.websocket.send(json.dumps({
                         "type": "update",
                         **local_config
                     }))
-                    
-                    # 重连成功后退出循环
+
+                    # Exit the loop on successful reconnection
                     break
             except Exception as e:
-                logger.error(f"重连失败: {e}")
-                await asyncio.sleep(10)  # 等待10秒后重试
+                logger.error(f"Reconnection failed: {e}")
+                await asyncio.sleep(10)  # Wait 10 seconds before retrying
 
     async def start_reconnect(self):
-        """启动重连任务"""
+        """Start the reconnection task"""
         if not self.reconnect_task or self.reconnect_task.done():
             self.reconnect_task = asyncio.create_task(self.reconnect())
 
     async def start(self, server_url: Optional[str] = None, token: Optional[str] = None):
-        """启动客户端"""
-        logger.info("启动客户端")
+        """Start the client"""
+        logger.info("Starting client")
         await self.ensure_config_dir()
-        
+
         if server_url and token:
             await self.connect(server_url, token)
         elif self.server_url and self.token:
             await self.connect(self.server_url, self.token)
         else:
-            logger.info("等待连接参数...")
+            logger.info("Waiting for connection parameters...")
             return
 
-        # 检查本地配置
+        # Check local configuration
         local_config = self.load_config()
         current_timestamp = int(time.time() * 1000)
 
-        # 确保配置结构完整
+        # Ensure the config structure is complete
         if not local_config:
             local_config = {
                 "globalConfig": {
@@ -247,35 +247,35 @@ class UFBClient:
             if "lastSyncTime" not in local_config["globalConfig"]["SYNC_CONFIG"]:
                 local_config["globalConfig"]["SYNC_CONFIG"]["lastSyncTime"] = current_timestamp
 
-        # 检查是否为首次同步（配置文件不存在或为空）
+        # Check whether this is the first sync (config file missing or empty)
         if not self.config_path.exists() or not local_config:
-            # 发送首次同步请求
+            # Send a first-sync request
             await self.websocket.send(json.dumps({
                 "type": "firstSync",
                 **local_config
             }))
         else:
-            # 非首次同步，直接检查配置是否需要更新
+            # Not the first sync; check whether the config needs updating
             await self.websocket.send(json.dumps({
                 "type": "update",
                 **local_config
             }))
 
-        # 创建后台任务处理消息
+        # Create a background task to handle messages
         asyncio.create_task(self._handle_messages())
 
     async def _handle_messages(self):
-        """在后台处理WebSocket消息"""
+        """Handle WebSocket messages in the background"""
         try:
             async for message in self.websocket:
                 try:
                     data = json.loads(message)
-                    logger.info(f"收到服务器消息")
+                    logger.info(f"Received server message")
 
                     msg_type = data.get("type")
                     if msg_type == "firstSync":
                         if data.get("message") == "firstSync_success":
-                            logger.info("首次同步成功")
+                            logger.info("First sync successful")
                             await self.save_config(data)
                             self.notify_config_update(data)
 
@@ -286,63 +286,63 @@ class UFBClient:
                             else:
                                 await self.save_config(data)
                             self.notify_config_update(data)
-                            
+
                             if data.get("message") == "config_updated":
-                                logger.info("配置已更新")
+                                logger.info("Config updated")
 
                     elif msg_type == "configConflict":
-                        # 获取时间戳
+                        # Extract timestamps
                         cloud_time = data.get("cloudTime")
                         local_time = data.get("localTime")
                         newer_config = data.get("newerConfig")
-                        
-                        logger.info(f"配置冲突:\n云端时间: {cloud_time}\n本地时间: {local_time}\n较新配置: {newer_config}")
-                        
-                        # 加载本地配置
+
+                        logger.info(f"Config conflict:\nCloud time: {cloud_time}\nLocal time: {local_time}\nNewer config: {newer_config}")
+
+                        # Load local config
                         local_config = self.load_config()
-                        
-                        # 总是使用云端配置
+
+                        # Always use cloud config
                         await self.websocket.send(json.dumps({
                             "type": "resolveConflict",
                             "choice": "useCloud"
                         }))
-                        
-                        # 等待服务器响应
+
+                        # Wait for server response
                         response = json.loads(await self.websocket.recv())
-                        # 合并配置
+                        # Merge configurations
                         merged_config = self.merge_configs(local_config, response)
                         await self.save_config(merged_config)
                         self.notify_config_update(merged_config)
 
                     elif msg_type == "delete":
                         if data.get("success"):
-                            logger.info("配置删除成功")
+                            logger.info("Config deleted successfully")
                         else:
-                            logger.error(f"配置删除失败: {data.get('message', '')}")
+                            logger.error(f"Config deletion failed: {data.get('message', '')}")
 
                 except json.JSONDecodeError:
-                    logger.error("收到无效的JSON消息")
+                    logger.error("Received invalid JSON message")
                 except Exception as e:
-                    logger.error(f"处理消息时出错: {e}")
+                    logger.error(f"Error processing message: {e}")
 
         except websockets.ConnectionClosed:
-            logger.info("WebSocket连接已关闭")
+            logger.info("WebSocket connection closed")
             self.is_connected = False
-            # 启动重连
+            # Start reconnection
             await self.start_reconnect()
         except Exception as e:
-            logger.error(f"WebSocket错误: {e}")
+            logger.error(f"WebSocket error: {e}")
             self.is_connected = False
-            # 启动重连
+            # Start reconnection
             await self.start_reconnect()
 
     async def close(self):
-        """关闭客户端"""
+        """Close the client"""
         if self.websocket:
             await self.websocket.close()
             self.is_connected = False
-            logger.info("WebSocket连接已关闭")
-            # 取消重连任务
+            logger.info("WebSocket connection closed")
+            # Cancel reconnection task
             if self.reconnect_task:
                 self.reconnect_task.cancel()
                 self.reconnect_task = None

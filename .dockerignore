@@ -1,49 +1,49 @@
-# 忽略环境变量文件
+# Ignore environment variable files
 .env
 .env.example
 
-# 忽略数据库文件
+# Ignore database files
 *.db
 db/forward.db1
 
-# 忽略 Python 生成的缓存文件
+# Ignore Python-generated cache files
 **/__pycache__/
 *.py[cod]
 *$py.class
 
-# 忽略虚拟环境
+# Ignore virtual environments
 **/venv/
 **/env/
 **/ENV/
 
-# 忽略 Telethon 会话文件
+# Ignore Telethon session files
 *.session
-*.session-journal 
+*.session-journal
 
-# 忽略 IDE 配置文件
+# Ignore IDE config files
 .idea/
 ufb/.idea
 
-# 忽略示例和临时配置文件
+# Ignore example and temporary config files
 /example
 /config/*
 ufb/config/*
 
-# 忽略无用的图片和测试目录
+# Ignore unused image and test directories
 **/test/
 **/images/
 
-# 忽略 RSS 相关数据和临时文件
+# Ignore RSS data and temp files
 /rss/media/*
 /rss/data/*
 
-# 忽略日志文件
+# Ignore log files
 logs/*
 
-# 忽略临时文件夹
+# Ignore temp folder
 /temp/*
 
-# 额外忽略 `.git` 和 Docker 相关文件，防止意外复制
+# Ignore .git and Docker-related files to prevent accidental inclusion
 .git
 .gitignore
 .dockerignore

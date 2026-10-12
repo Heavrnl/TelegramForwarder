@@ -28,104 +28,104 @@ async def callback_push_settings(event, rule_id, session, message, data):
     return
 
 async def callback_toggle_enable_push(event, rule_id, session, message, data):
-    """处理切换推送启用状态的回调"""
+    """Handle push enable/disable toggle callback"""
     try:
-        # 获取规则
+        # Get rule
         rule = session.query(ForwardRule).get(int(rule_id))
         
         rule.enable_push = not rule.enable_push
         
-        # 检查是否启用了同步功能
+        # Check if sync is enabled
         if rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步推送状态到关联规则")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule.id} has sync enabled, syncing push status to linked rules")
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
             
-            # 为每个同步规则应用相同的设置
+            # Apply same setting to each synced rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步推送状态到规则 {sync_rule_id}")
+                logger.info(f"Syncing push status to rule {sync_rule_id}")
                 
-                # 获取同步目标规则
+                # Get sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                     continue
                 
                 try:
-                    # 更新同步目标规则的推送状态
+                    # Update sync target rule push status
                     target_rule.enable_push = rule.enable_push
-                    logger.info(f"同步规则 {sync_rule_id} 的推送状态已更新为 {rule.enable_push}")
+                    logger.info(f"Rule {sync_rule_id} push status updated to {rule.enable_push}")
                 except Exception as e:
-                    logger.error(f"同步推送状态到规则 {sync_rule_id} 时出错: {str(e)}")
+                    logger.error(f"Error syncing push status to rule {sync_rule_id}: {str(e)}")
                     continue
         
         session.commit()
 
         await event.edit(PUSH_SETTINGS_TEXT, buttons=await create_push_settings_buttons(rule_id), link_preview=False)
 
-        status = "启用" if rule.enable_push else "禁用"
-        await event.answer(f'已{status}推送功能')
+        status = "enabled" if rule.enable_push else "disabled"
+        await event.answer(f'Push notifications {status}')
         
     except Exception as e:
         session.rollback()
-        logger.error(f"切换推送状态时出错: {str(e)}")
+        logger.error(f"Error toggling push status: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer('处理请求时出错，请检查日志')
+        await event.answer('Error processing request, check the logs')
 
 
 
 async def callback_add_push_channel(event, rule_id, session, message, data):
-    """处理添加推送配置的回调"""
+    """Handle add push config callback"""
     try:
-        # 获取规则
+        # Get rule
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer('规则不存在')
+            await event.answer('Rule not found')
             return
             
-        # 检查是否频道消息
+        # Check if channel message
         if isinstance(event.chat, types.Channel):
-            # 检查是否是管理员
+            # Check if admin
             if not await is_admin(event):
-                await event.answer('只有管理员可以修改设置')
+                await event.answer('Only admins can modify settings')
                 return
             user_id = os.getenv('USER_ID')
         else:
             user_id = event.sender_id
 
-        # 设置用户状态
+        # Set user state
         chat_id = abs(event.chat_id)
         state = f"add_push_channel:{rule_id}"
         
-        logger.info(f"准备设置状态 - user_id: {user_id}, chat_id: {chat_id}, state: {state}")
+        logger.info(f"Setting state - user_id: {user_id}, chat_id: {chat_id}, state: {state}")
         state_manager.set_state(user_id, chat_id, state, message, state_type="push")
         
-        # 启动超时取消任务
+        # Start timeout cancel task
         asyncio.create_task(cancel_state_after_timeout(user_id, chat_id))
         
         await message.edit(
-            f"请发送推送配置\n"
-            f"5分钟内未设置将自动取消",
-            buttons=[[Button.inline("取消", f"cancel_add_push_channel:{rule_id}")]]
+            f"Please send the push configuration\n"
+            f"Will auto-cancel in 5 minutes if not set",
+            buttons=[[Button.inline("Cancel", f"cancel_add_push_channel:{rule_id}")]]
         )
         
     except Exception as e:
         session.rollback()
-        logger.error(f"添加推送配置时出错: {str(e)}")
+        logger.error(f"Error adding push config: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer('处理请求时出错，请检查日志')
+        await event.answer('Error processing request, check the logs')
 
 async def callback_cancel_add_push_channel(event, rule_id, session, message, data):
-    """取消添加推送配置"""
+    """Cancel adding push config"""
     try:
         rule_id = data.split(':')[1]
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer('规则不存在')
+            await event.answer('Rule not found')
             return
             
-        # 清除状态
+        # Clear state
         if isinstance(event.chat, types.Channel):
             user_id = os.getenv('USER_ID')
         else:
@@ -135,46 +135,46 @@ async def callback_cancel_add_push_channel(event, rule_id, session, message, dat
         state_manager.clear_state(user_id, chat_id)
 
         await event.edit(PUSH_SETTINGS_TEXT, buttons=await create_push_settings_buttons(rule_id), link_preview=False)
-        await event.answer("已取消添加推送配置")
+        await event.answer("Cancelled")
         
     except Exception as e:
-        logger.error(f"取消添加推送配置时出错: {str(e)}")
+        logger.error(f"Error cancelling add push config: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer('处理请求时出错，请检查日志')
+        await event.answer('Error processing request, check the logs')
 
 async def cancel_state_after_timeout(user_id: int, chat_id: int, timeout_minutes: int = 5):
-    """在指定时间后自动取消状态"""
+    """Auto-cancel state after the specified timeout"""
     await asyncio.sleep(timeout_minutes * 60)
     current_state, _, _ = state_manager.get_state(user_id, chat_id)
-    if current_state:  # 只有当状态还存在时才清除
-        logger.info(f"状态超时自动取消 - user_id: {user_id}, chat_id: {chat_id}")
+    if current_state:  # Only clear if state still exists
+        logger.info(f"State auto-cancelled due to timeout - user_id: {user_id}, chat_id: {chat_id}")
         state_manager.clear_state(user_id, chat_id)
 
 async def callback_toggle_push_config(event, config_id, session, message, data):
-    """处理点击推送配置的回调"""
+    """Handle push config click callback"""
     try:
 
         config = session.query(PushConfig).get(int(config_id))
         if not config:
-            await event.answer("推送配置不存在")
+            await event.answer("Push config not found")
             return
 
         await event.edit(
-            f"推送配置: `{config.push_channel}`\n",
+            f"Push config: `{config.push_channel}`\n",
             buttons=await create_push_config_details_buttons(config.id)
         )
         
     except Exception as e:
-        logger.error(f"显示推送配置详情时出错: {str(e)}")
+        logger.error(f"Error displaying push config details: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer("处理请求时出错，请检查日志")
+        await event.answer("Error processing request, check the logs")
 
 async def callback_toggle_push_config_status(event, config_id, session, message, data):
-    """处理切换推送配置状态的回调"""
+    """Handle push config status toggle callback"""
     try:
         config = session.query(PushConfig).get(int(config_id))
         if not config:
-            await event.answer("推送配置不存在")
+            await event.answer("Push config not found")
             return
         
         rule_id = config.rule_id
@@ -182,238 +182,238 @@ async def callback_toggle_push_config_status(event, config_id, session, message,
         
         config.enable_push_channel = not config.enable_push_channel
         
-        # 获取规则对象
+        # Get rule object
         rule = session.query(ForwardRule).get(int(rule_id))
         
-        # 检查是否启用了同步功能
+        # Check if sync is enabled
         if rule and rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步推送配置状态到关联规则")
+            logger.info(f"Rule {rule.id} has sync enabled, syncing push config status to linked rules")
             
-            # 获取需要同步的规则列表
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
             
-            # 为每个同步规则更新相同推送频道的状态
+            # Update same push channel status in each synced rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步规则 {sync_rule_id} 的推送频道 {push_channel} 状态")
+                logger.info(f"Syncing push channel {push_channel} status to rule {sync_rule_id}")
                 
-                # 查找目标规则的相同推送频道配置
+                # Find matching push channel config in target rule
                 target_config = session.query(PushConfig).filter_by(
                     rule_id=sync_rule_id, 
                     push_channel=push_channel
                 ).first()
                 
                 if not target_config:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在推送频道 {push_channel}，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} missing push channel {push_channel}, skipping")
                     continue
                 
                 try:
-                    # 更新目标规则推送配置的状态
+                    # Update target rule push config status
                     target_config.enable_push_channel = config.enable_push_channel
-                    logger.info(f"已更新规则 {sync_rule_id} 的推送频道 {push_channel} 状态为 {config.enable_push_channel}")
+                    logger.info(f"Updated rule {sync_rule_id} push channel {push_channel} status to {config.enable_push_channel}")
                 except Exception as e:
-                    logger.error(f"更新规则 {sync_rule_id} 的推送配置状态时出错: {str(e)}")
+                    logger.error(f"Error updating rule {sync_rule_id} push config status: {str(e)}")
                     continue
         
         session.commit()
 
         await event.edit(
-            f"推送配置: `{config.push_channel}`\n",
+            f"Push config: `{config.push_channel}`\n",
             buttons=await create_push_config_details_buttons(config.id)
         )
         
-        status = "启用" if config.enable_push_channel else "禁用"
-        await event.answer(f"已{status}推送配置")
+        status = "enabled" if config.enable_push_channel else "disabled"
+        await event.answer(f"Push config {status}")
         
     except Exception as e:
         session.rollback()
-        logger.error(f"切换推送配置状态时出错: {str(e)}")
+        logger.error(f"Error toggling push config status: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer("处理请求时出错，请检查日志")
+        await event.answer("Error processing request, check the logs")
 
 async def callback_delete_push_config(event, config_id, session, message, data):
-    """处理删除推送配置的回调"""
+    """Handle delete push config callback"""
     try:
         config = session.query(PushConfig).get(int(config_id))
         if not config:
-            await event.answer("推送配置不存在")
+            await event.answer("Push config not found")
             return
         
         rule_id = config.rule_id
         push_channel = config.push_channel
         
-        # 获取规则对象
+        # Get rule object
         rule = session.query(ForwardRule).get(int(rule_id))
         
-        # 检查是否启用了同步功能
+        # Check if sync is enabled
         if rule and rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步删除推送配置到关联规则")
+            logger.info(f"Rule {rule.id} has sync enabled, syncing push config deletion to linked rules")
             
-            # 获取需要同步的规则列表
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
             
-            # 为每个同步规则删除相同的推送配置
+            # Delete same push config in each synced rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步删除规则 {sync_rule_id} 的推送频道 {push_channel}")
+                logger.info(f"Syncing deletion of push channel {push_channel} from rule {sync_rule_id}")
                 
-                # 查找目标规则的相同推送频道配置
+                # Find matching push channel config in target rule
                 target_config = session.query(PushConfig).filter_by(
                     rule_id=sync_rule_id, 
                     push_channel=push_channel
                 ).first()
                 
                 if not target_config:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在推送频道 {push_channel}，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} missing push channel {push_channel}, skipping")
                     continue
                 
                 try:
-                    # 删除目标规则的推送配置
+                    # Delete target rule push config
                     session.delete(target_config)
-                    logger.info(f"已删除规则 {sync_rule_id} 的推送频道 {push_channel}")
+                    logger.info(f"Deleted push channel {push_channel} from rule {sync_rule_id}")
                 except Exception as e:
-                    logger.error(f"删除规则 {sync_rule_id} 的推送配置时出错: {str(e)}")
+                    logger.error(f"Error deleting rule {sync_rule_id} push config: {str(e)}")
                     continue
         
-        # 删除配置
+        # Delete config
         session.delete(config)
         session.commit()
         
         await event.edit(PUSH_SETTINGS_TEXT, buttons=await create_push_settings_buttons(rule_id), link_preview=False)
-        await event.answer("已删除推送配置")
+        await event.answer("Push config deleted")
         
     except Exception as e:
         session.rollback()
-        logger.error(f"删除推送配置时出错: {str(e)}")
+        logger.error(f"Error deleting push config: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer("处理请求时出错，请检查日志")
+        await event.answer("Error processing request, check the logs")
 
 async def callback_push_page(event, rule_id_data, session, message, data):
-    """处理推送设置页面翻页的回调"""
+    """Handle push settings page navigation callback"""
     try:
-        # 解析数据
+        # Parse data
         parts = rule_id_data.split(":")
         if len(parts) != 2:
-            await event.answer("数据格式错误")
+            await event.answer("Invalid data format")
             return
             
         rule_id = int(parts[0])
         page = int(parts[1])
 
         await event.edit(PUSH_SETTINGS_TEXT, buttons=await create_push_settings_buttons(rule_id, page), link_preview=False)
-        await event.answer(f"第 {page+1} 页")
+        await event.answer(f"Page {page+1}")
         
     except Exception as e:
-        logger.error(f"处理推送设置翻页时出错: {str(e)}")
+        logger.error(f"Error handling push settings pagination: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer("处理请求时出错，请检查日志")
+        await event.answer("Error processing request, check the logs")
 
 async def callback_toggle_enable_only_push(event, rule_id, session, message, data):
-    """处理切换只转发到推送配置的回调"""
+    """Handle forward-to-push-only toggle callback"""
     try:
         rule = session.query(ForwardRule).get(int(rule_id))
        
         rule.enable_only_push = not rule.enable_only_push
         
-        # 检查是否启用了同步功能
+        # Check if sync is enabled
         if rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步'只转发到推送配置'设置到关联规则")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule.id} has sync enabled, syncing 'push-only' setting to linked rules")
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
             
-            # 为每个同步规则应用相同的设置
+            # Apply same setting to each synced rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步'只转发到推送配置'设置到规则 {sync_rule_id}")
+                logger.info(f"Syncing 'push-only' setting to rule {sync_rule_id}")
                 
-                # 获取同步目标规则
+                # Get sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                     continue
                 
                 try:
-                    # 更新同步目标规则的设置
+                    # Update sync target rule setting
                     target_rule.enable_only_push = rule.enable_only_push
-                    logger.info(f"同步规则 {sync_rule_id} 的'只转发到推送配置'设置已更新为 {rule.enable_only_push}")
+                    logger.info(f"Rule {sync_rule_id} push-only setting updated to {rule.enable_only_push}")
                 except Exception as e:
-                    logger.error(f"同步'只转发到推送配置'设置到规则 {sync_rule_id} 时出错: {str(e)}")
+                    logger.error(f"Error syncing push-only setting to rule {sync_rule_id}: {str(e)}")
                     continue
         
         session.commit()
         
         await event.edit(PUSH_SETTINGS_TEXT, buttons=await create_push_settings_buttons(rule_id), link_preview=False)
 
-        status = "启用" if rule.enable_only_push else "禁用"
-        await event.answer(f'已{status}只转发到推送配置')
+        status = "enabled" if rule.enable_only_push else "disabled"
+        await event.answer(f'Forward to push only: {status}')
         
     except Exception as e:
         session.rollback()
-        logger.error(f"切换只转发到推送配置状态时出错: {str(e)}")
+        logger.error(f"Error toggling push-only status: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer('处理请求时出错，请检查日志')
+        await event.answer('Error processing request, check the logs')
 
 async def callback_toggle_media_send_mode(event, config_id, session, message, data):
-    """处理切换媒体发送方式的回调"""
+    """Handle media send mode toggle callback"""
     try:
         config = session.query(PushConfig).get(int(config_id))
         if not config:
-            await event.answer("推送配置不存在")
+            await event.answer("Push config not found")
             return
             
         rule_id = config.rule_id
         
-        # 切换媒体发送模式
+        # Toggle media send mode
         if config.media_send_mode == "Single":
             config.media_send_mode = "Multiple"
-            new_mode = "全部"
+            new_mode = "All"
         else:
             config.media_send_mode = "Single"
-            new_mode = "单个"
+            new_mode = "Single"
             
         session.commit()
         
-        # 检查是否启用了同步功能
+        # Check if sync is enabled
         rule = session.query(ForwardRule).get(int(rule_id))
         if rule and rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步媒体发送方式到关联规则的推送配置")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule.id} has sync enabled, syncing media send mode to linked rules")
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
             
-            # 获取当前推送配置的推送频道
+            # Get push channel of current config
             push_channel = config.push_channel
             
-            # 为每个同步规则查找相同推送频道的配置并应用相同设置
+            # Find and update same push channel config in each synced rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步媒体发送方式到规则 {sync_rule_id} 的相同推送频道")
+                logger.info(f"Syncing media send mode to rule {sync_rule_id} push channel")
                 
-                # 查找目标规则下的相同推送频道配置
+                # Find matching push channel config in target rule
                 target_config = session.query(PushConfig).filter_by(rule_id=sync_rule_id, push_channel=push_channel).first()
                 if not target_config:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在相同推送频道 {push_channel}，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} missing push channel {push_channel}, skipping")
                     continue
                 
                 try:
-                    # 更新同步目标配置的媒体发送方式
+                    # Update sync target config media send mode
                     target_config.media_send_mode = config.media_send_mode
-                    logger.info(f"同步规则 {sync_rule_id} 的推送频道 {push_channel} 的媒体发送方式已更新为 {config.media_send_mode}")
+                    logger.info(f"Rule {sync_rule_id} push channel {push_channel} media send mode updated to {config.media_send_mode}")
                 except Exception as e:
-                    logger.error(f"同步媒体发送方式到规则 {sync_rule_id} 时出错: {str(e)}")
+                    logger.error(f"Error syncing media send mode to rule {sync_rule_id}: {str(e)}")
                     continue
                     
             session.commit()
         
-        # 更新界面
+        # Update UI
         await event.edit(
-            f"推送配置: `{config.push_channel}`\n",
+            f"Push config: `{config.push_channel}`\n",
             buttons=await create_push_config_details_buttons(config.id)
         )
         
-        await event.answer(f"已设置媒体发送方式为: {new_mode}")
+        await event.answer(f"Media send mode set to: {new_mode}")
         
     except Exception as e:
         session.rollback()
-        logger.error(f"切换媒体发送方式时出错: {str(e)}")
+        logger.error(f"Error toggling media send mode: {str(e)}")
         logger.error(traceback.format_exc())
-        await event.answer("处理请求时出错，请检查日志")
+        await event.answer("Error processing request, check the logs")

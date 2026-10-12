@@ -15,138 +15,138 @@ class ChatUpdater:
         self.user_client = user_client
         self.timezone = pytz.timezone(DEFAULT_TIMEZONE)
         self.task = None
-        # 从环境变量获取更新时间，默认凌晨3点
+        # Get update time from environment variable; default is 03:00
         self.update_time = os.getenv('CHAT_UPDATE_TIME', "03:00")
-    
+
     async def start(self):
-        """启动定时更新任务"""
-        logger.info("开始启动聊天信息更新器...")
+        """Start the scheduled update task."""
+        logger.info("Starting chat info updater...")
         try:
-            # 计算下一次执行时间
+            # Calculate the next execution time
             now = datetime.now(self.timezone)
             next_time = self._get_next_run_time(now, self.update_time)
             wait_seconds = (next_time - now).total_seconds()
-            
-            logger.info(f"下一次聊天信息更新时间: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
-            logger.info(f"等待时间: {wait_seconds:.2f} 秒")
-            
-            # 创建定时任务
+
+            logger.info(f"Next chat info update time: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+            logger.info(f"Wait time: {wait_seconds:.2f} second(s)")
+
+            # Create scheduled task
             self.task = asyncio.create_task(self._run_update_task())
-            logger.info("聊天信息更新器启动完成")
+            logger.info("Chat info updater started successfully")
         except Exception as e:
-            logger.error(f"启动聊天信息更新器时出错: {str(e)}")
-            logger.error(f"错误详情: {traceback.format_exc()}")
-    
+            logger.error(f"Error starting chat info updater: {str(e)}")
+            logger.error(f"Error details: {traceback.format_exc()}")
+
     def _get_next_run_time(self, now, target_time):
-        """计算下一次运行时间"""
+        """Calculate the next run time."""
         hour, minute = map(int, target_time.split(':'))
         next_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-        
+
         if next_time <= now:
             next_time += timedelta(days=1)
-            
+
         return next_time
-    
+
     async def _run_update_task(self):
-        """运行更新任务"""
+        """Run the update task loop."""
         while True:
             try:
-                # 计算下一次执行时间
+                # Calculate the next execution time
                 now = datetime.now(self.timezone)
                 target_time = self._get_next_run_time(now, self.update_time)
-                
-                # 等待到执行时间
+
+                # Wait until execution time
                 wait_seconds = (target_time - now).total_seconds()
                 await asyncio.sleep(wait_seconds)
-                
-                # 执行更新任务
+
+                # Run the update task
                 await self._update_all_chats()
-                
+
             except asyncio.CancelledError:
-                logger.info("聊天信息更新任务已取消")
+                logger.info("Chat info update task cancelled")
                 break
             except Exception as e:
-                logger.error(f"聊天信息更新任务出错: {str(e)}")
-                logger.error(f"错误详情: {traceback.format_exc()}")
-                await asyncio.sleep(60)  # 出错后等待一分钟再重试
-    
+                logger.error(f"Chat info update task error: {str(e)}")
+                logger.error(f"Error details: {traceback.format_exc()}")
+                await asyncio.sleep(60)  # Wait one minute before retrying after an error
+
     async def _update_all_chats(self):
-        """更新所有聊天信息"""
-        logger.info("开始更新所有聊天信息...")
+        """Update info for all chats."""
+        logger.info("Starting update for all chat info...")
         session = get_session()
         try:
-            # 获取所有聊天
+            # Fetch all chats
             chats = session.query(Chat).all()
             total_chats = len(chats)
-            logger.info(f"找到 {total_chats} 个聊天需要更新信息")
-            
+            logger.info(f"Found {total_chats} chat(s) to update")
+
             updated_count = 0
             skipped_count = 0
             error_count = 0
-            
-            # 处理每个聊天
+
+            # Process each chat
             for i, chat in enumerate(chats, 1):
                 try:
-                    # 每10个聊天报告一次进度
+                    # Report progress every 10 chats
                     if i % 10 == 0 or i == total_chats:
-                        logger.info(f"进度: {i}/{total_chats} ({i/total_chats*100:.1f}%)")
-                    
+                        logger.info(f"Progress: {i}/{total_chats} ({i/total_chats*100:.1f}%)")
+
                     chat_id = chat.telegram_chat_id
-                    # 尝试获取聊天实体
+                    # Attempt to fetch the chat entity
                     try:
-                        # 尝试转换聊天ID为整数
+                        # Try to convert chat ID to integer
                         try:
                             chat_id_int = int(chat_id)
                         except ValueError:
-                            logger.warning(f"聊天ID '{chat_id}' 不是有效的数字格式")
+                            logger.warning(f"Chat ID '{chat_id}' is not a valid numeric format")
                             skipped_count += 1
                             continue
-                            
+
                         entity = await self.user_client.get_entity(chat_id_int)
-                        # 更新聊天名称
+                        # Update chat name
                         new_name = entity.title if hasattr(entity, 'title') else (
-                            f"{entity.first_name} {entity.last_name}" if hasattr(entity, 'last_name') and entity.last_name 
-                            else entity.first_name if hasattr(entity, 'first_name') 
-                            else "私聊"
+                            f"{entity.first_name} {entity.last_name}" if hasattr(entity, 'last_name') and entity.last_name
+                            else entity.first_name if hasattr(entity, 'first_name')
+                            else "Direct Message"
                         )
-                        
-                        # 只有当名称有变化时才更新
+
+                        # Only update if the name has changed
                         if chat.name != new_name:
-                            old_name = chat.name or "未命名"
+                            old_name = chat.name or "Unnamed"
                             chat.name = new_name
                             session.commit()
-                            logger.info(f"已更新聊天 {chat_id}: {old_name} -> {new_name}")
+                            logger.info(f"Updated chat {chat_id}: {old_name} -> {new_name}")
                             updated_count += 1
                         else:
                             skipped_count += 1
-                            
+
                     except ValueError as e:
-                        logger.warning(f"无法获取聊天 {chat_id} 的信息: 无效的ID格式 - {str(e)}")
+                        logger.warning(f"Cannot fetch info for chat {chat_id}: invalid ID format - {str(e)}")
                         skipped_count += 1
                         continue
                     except Exception as e:
-                        logger.warning(f"无法获取聊天 {chat_id} 的信息: {str(e)}")
+                        logger.warning(f"Cannot fetch info for chat {chat_id}: {str(e)}")
                         skipped_count += 1
                         continue
-                        
+
                 except Exception as e:
-                    logger.error(f"处理聊天 {chat.telegram_chat_id} 时出错: {str(e)}")
+                    logger.error(f"Error processing chat {chat.telegram_chat_id}: {str(e)}")
                     error_count += 1
                     continue
-                    
-                # 每个聊天处理后暂停一会，避免请求过于频繁
+
+                # Brief pause after each chat to avoid excessive request rate
                 await asyncio.sleep(1)
-                
-            logger.info(f"聊天信息更新完成。总计: {total_chats}, 更新: {updated_count}, 跳过: {skipped_count}, 错误: {error_count}")
-            
+
+            logger.info(f"Chat info update complete. Total: {total_chats}, Updated: {updated_count}, Skipped: {skipped_count}, Errors: {error_count}")
+
         except Exception as e:
-            logger.error(f"更新聊天信息时出错: {str(e)}")
-            logger.error(f"错误详情: {traceback.format_exc()}")
+            logger.error(f"Error updating chat info: {str(e)}")
+            logger.error(f"Error details: {traceback.format_exc()}")
         finally:
             session.close()
-    
+
     def stop(self):
-        """停止定时任务"""
+        """Stop the scheduled task."""
         if self.task:
             self.task.cancel()
-            logger.info("聊天信息更新任务已停止") 
+            logger.info("Chat info update task stopped")

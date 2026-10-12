@@ -8,65 +8,66 @@ logger = logging.getLogger(__name__)
 
 class ReplyFilter(BaseFilter):
     """
-    回复过滤器，用于处理媒体组消息的评论区按钮
-    由于媒体组消息无法直接添加按钮，此过滤器会使用bot回复已转发的消息，并添加评论区按钮
+    Reply filter — handles comment-section buttons for media group messages.
+    Because buttons cannot be added directly to media group messages, this filter
+    uses the bot to reply to the already-forwarded message with a comment-section button.
     """
-    
+
     async def _process(self, context):
         """
-        处理媒体组消息的评论区按钮
-        
+        Handle comment-section buttons for media group messages.
+
         Args:
-            context: 消息上下文
-            
+            context: message context
+
         Returns:
-            bool: 是否继续处理
+            bool: whether to continue processing
         """
         try:
-            # 如果规则不存在或未启用评论按钮功能，直接跳过
+            # If the rule doesn't exist or the comment button feature isn't enabled, skip
             if not context.rule or not context.rule.enable_comment_button:
                 return True
-                
-            # 只处理媒体组消息
+
+            # Only handle media group messages
             if not context.is_media_group:
                 return True
-                
-            # 检查是否有评论区链接和已转发的消息
+
+            # Check that a comment link and forwarded messages are available
             if not context.comment_link or not context.forwarded_messages:
-                logger.info("没有评论区链接或已转发消息，无法添加评论区按钮回复")
+                logger.info("No comment link or forwarded messages available; cannot add comment button reply")
                 return True
-                
-            # 使用bot客户端（context.client）
+
+            # Use the bot client (context.client)
             client = context.client
-            
-            # 获取目标聊天信息
+
+            # Get target chat info
             rule = context.rule
             target_chat = rule.target_chat
             target_chat_id = int(target_chat.telegram_chat_id)
-            
-            # 获取已转发的第一条消息ID
+
+            # Get the first forwarded message ID
             first_forwarded_msg = context.forwarded_messages[0]
-            
-            # 创建评论区按钮
-            comment_button = Button.url("💬 查看评论区", context.comment_link)
+
+            # Create the comment button
+            comment_button = Button.url("💬 View Comments", context.comment_link)
             buttons = [[comment_button]]
-            
-            # 回复已转发的媒体组消息
-            logger.info(f"正在使用Bot给已转发的媒体组消息 {first_forwarded_msg.id} 发送评论区按钮回复")
-            
-            # 发送回复消息，附带评论区按钮
+
+            # Reply to the forwarded media group message
+            logger.info(f"Sending comment button reply to forwarded media group message {first_forwarded_msg.id} via bot")
+
+            # Send the reply message with the comment button
             await client.send_message(
                 entity=target_chat_id,
-                message="💬 评论区",
+                message="💬 Comments",
                 buttons=buttons,
                 reply_to=first_forwarded_msg.id,
             )
-            logger.info("成功发送评论区按钮回复")
-                
+            logger.info("Comment button reply sent successfully")
+
             return True
-            
+
         except Exception as e:
-            logger.error(f"ReplyFilter处理消息时出错: {str(e)}")
+            logger.error(f"ReplyFilter error while processing message: {str(e)}")
 
             logger.error(traceback.format_exc())
-            return True 
+            return True

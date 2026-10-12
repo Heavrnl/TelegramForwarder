@@ -13,11 +13,11 @@ from models.models import PushConfig
 logger = logging.getLogger(__name__)
 
 async def handle_prompt_setting(event, client, sender_id, chat_id, current_state, message):
-    """处理设置提示词的逻辑"""
-    logger.info(f"开始处理提示词设置,用户ID:{sender_id},聊天ID:{chat_id},当前状态:{current_state}")
+    """Handle prompt/template setting logic"""
+    logger.info(f"Processing prompt setting, user ID: {sender_id}, chat ID: {chat_id}, state: {current_state}")
     
     if not current_state:
-        logger.info("当前无状态,返回False")
+        logger.info("No current state, returning False")
         return False
 
     rule_id = None
@@ -28,91 +28,91 @@ async def handle_prompt_setting(event, client, sender_id, chat_id, current_state
     if current_state.startswith("set_summary_prompt:"):
         rule_id = current_state.split(":")[1]
         field_name = "summary_prompt"
-        prompt_type = "AI总结"
+        prompt_type = "AI Summary"
         template_type = "ai"
-        logger.info(f"检测到设置总结提示词,规则ID:{rule_id}")
+        logger.info(f"Detected set_summary_prompt, rule ID: {rule_id}")
     elif current_state.startswith("set_ai_prompt:"):
         rule_id = current_state.split(":")[1]
         field_name = "ai_prompt"
         prompt_type = "AI"
         template_type = "ai"
-        logger.info(f"检测到设置AI提示词,规则ID:{rule_id}")
+        logger.info(f"Detected set_ai_prompt, rule ID: {rule_id}")
     elif current_state.startswith("set_userinfo_template:"):
         rule_id = current_state.split(":")[1]
         field_name = "userinfo_template"
-        prompt_type = "用户信息"
+        prompt_type = "User Info"
         template_type = "userinfo"
-        logger.info(f"检测到设置用户信息模板,规则ID:{rule_id}")
+        logger.info(f"Detected set_userinfo_template, rule ID: {rule_id}")
     elif current_state.startswith("set_time_template:"):
         rule_id = current_state.split(":")[1]
         field_name = "time_template"
-        prompt_type = "时间"
+        prompt_type = "Time"
         template_type = "time"
-        logger.info(f"检测到设置时间模板,规则ID:{rule_id}")
+        logger.info(f"Detected set_time_template, rule ID: {rule_id}")
     elif current_state.startswith("set_original_link_template:"):
         rule_id = current_state.split(":")[1]
         field_name = "original_link_template"
-        prompt_type = "原始链接"
+        prompt_type = "Original Link"
         template_type = "link"
-        logger.info(f"检测到设置原始链接模板,规则ID:{rule_id}")
+        logger.info(f"Detected set_original_link_template, rule ID: {rule_id}")
     elif current_state.startswith("add_push_channel:"):
-        # 处理添加推送频道
+        # Handle adding push channel
         rule_id = current_state.split(":")[1]
-        logger.info(f"检测到添加推送频道,规则ID:{rule_id}")
+        logger.info(f"Detected add_push_channel, rule ID: {rule_id}")
         return await handle_add_push_channel(event, client, sender_id, chat_id, rule_id, message)
     else:
-        logger.info(f"未知的状态类型:{current_state}")
+        logger.info(f"Unknown state type: {current_state}")
         return False
 
-    logger.info(f"处理设置{prompt_type}提示词/模板,规则ID:{rule_id},字段名:{field_name}")
+    logger.info(f"Processing {prompt_type} prompt/template setting, rule ID: {rule_id}, field: {field_name}")
     session = get_session()
     try:
-        logger.info(f"查询规则ID:{rule_id}")
+        logger.info(f"Querying rule ID: {rule_id}")
         rule = session.query(ForwardRule).get(int(rule_id))
         if rule:
             old_prompt = getattr(rule, field_name) if hasattr(rule, field_name) else None
             new_prompt = event.message.text
-            logger.info(f"找到规则,原提示词/模板:{old_prompt}")
-            logger.info(f"准备更新为新提示词/模板:{new_prompt}")
+            logger.info(f"Rule found, old prompt/template: {old_prompt}")
+            logger.info(f"Updating to new prompt/template: {new_prompt}")
             
             setattr(rule, field_name, new_prompt)
             session.commit()
-            logger.info(f"已更新规则{rule_id}的{prompt_type}提示词/模板")
+            logger.info(f"Updated rule {rule_id} {prompt_type} prompt/template")
 
-            # 检查是否启用了同步功能
+            # Check if sync is enabled
             if rule.enable_sync:
-                logger.info(f"规则 {rule.id} 启用了同步功能，正在同步提示词/模板设置到关联规则")
-                # 获取需要同步的规则列表
+                logger.info(f"Rule {rule.id} has sync enabled, syncing prompt/template to linked rules")
+                # Get list of rules to sync
                 sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
                 
-                # 为每个同步规则应用相同的提示词设置
+                # Apply same prompt setting to each sync rule
                 for sync_rule in sync_rules:
                     sync_rule_id = sync_rule.sync_rule_id
-                    logger.info(f"正在同步{prompt_type}提示词/模板到规则 {sync_rule_id}")
+                    logger.info(f"Syncing {prompt_type} prompt/template to rule {sync_rule_id}")
                     
-                    # 获取同步目标规则
+                    # Get sync target rule
                     target_rule = session.query(ForwardRule).get(sync_rule_id)
                     if not target_rule:
-                        logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                        logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                         continue
                     
-                    # 更新同步目标规则的提示词设置
+                    # Update sync target rule prompt setting
                     try:
-                        # 记录旧提示词
+                        # Record old prompt
                         old_target_prompt = getattr(target_rule, field_name) if hasattr(target_rule, field_name) else None
                         
-                        # 设置新提示词
+                        # Set new prompt
                         setattr(target_rule, field_name, new_prompt)
                         
-                        logger.info(f"同步规则 {sync_rule_id} 的{prompt_type}提示词/模板从 '{old_target_prompt}' 到 '{new_prompt}'")
+                        logger.info(f"Synced rule {sync_rule_id} {prompt_type} prompt/template from '{old_target_prompt}' to '{new_prompt}'")
                     except Exception as e:
-                        logger.error(f"同步{prompt_type}提示词/模板到规则 {sync_rule_id} 时出错: {str(e)}")
+                        logger.error(f"Error syncing {prompt_type} prompt/template to rule {sync_rule_id}: {str(e)}")
                         continue
                 
                 session.commit()
-                logger.info("所有同步提示词/模板更改已提交")
+                logger.info("All synced prompt/template changes committed")
             
-            logger.info(f"清除用户状态,用户ID:{sender_id},聊天ID:{chat_id}")
+            logger.info(f"Clearing user state, user ID: {sender_id}, chat ID: {chat_id}")
             state_manager.clear_state(sender_id, chat_id)
             
             
@@ -123,58 +123,58 @@ async def handle_prompt_setting(event, client, sender_id, chat_id, current_state
             try:
                 await async_delete_user_message(bot_client, message_chat_id, event.message.id, 0)
             except Exception as e:
-                logger.error(f"删除用户消息失败: {str(e)}")
+                logger.error(f"Failed to delete user message: {str(e)}")
 
             await message.delete()
-            logger.info("准备发送更新后的设置消息")
+            logger.info("Sending updated settings message")
             
-            # 根据模板类型选择不同的显示页面
+            # Select display page based on template type
             if template_type == "ai":
-                # AI设置页面
+                # AI settings page
                 await client.send_message(
                     chat_id,
                     await get_ai_settings_text(rule),
                     buttons=await bot_handler.create_ai_settings_buttons(rule)
                 )
             elif template_type in ["userinfo", "time", "link"]:
-                # 其他设置页面
+                # Other settings page
                 await client.send_message(
                     chat_id,
-                    f"已更新规则 {rule_id} 的{prompt_type}模板",
+                    f"Updated rule {rule_id} {prompt_type} template",
                     buttons=await bot_handler.create_other_settings_buttons(rule_id=rule_id)
                 )
             
-            # 删除用户消息
-            logger.info("设置消息发送成功")
+            # Delete user message
+            logger.info("Settings message sent successfully")
             return True
         else:
-            logger.warning(f"未找到规则ID:{rule_id}")
+            logger.warning(f"Rule not found, ID: {rule_id}")
     except Exception as e:
-        logger.error(f"处理提示词/模板设置时发生错误:{str(e)}")
+        logger.error(f"Error handling prompt/template setting: {str(e)}")
         raise
     finally:
         session.close()
-        logger.info("数据库会话已关闭")
+        logger.info("Database session closed")
     return True
 
 async def handle_add_push_channel(event, client, sender_id, chat_id, rule_id, message):
-    """处理添加推送频道的逻辑"""
-    logger.info(f"开始处理添加推送频道,规则ID:{rule_id}")
+    """Handle add push channel logic"""
+    logger.info(f"Processing add push channel, rule ID: {rule_id}")
     
     session = get_session()
     try:
-        # 获取规则
+        # Get rule
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            logger.warning(f"未找到规则ID:{rule_id}")
+            logger.warning(f"Rule not found, ID: {rule_id}")
             return False
         
-        # 获取用户输入的推送频道信息
+        # Get user-entered push channel info
         push_channel = event.message.text.strip()
-        logger.info(f"用户输入的推送频道: {push_channel}")
+        logger.info(f"User entered push channel: {push_channel}")
         
         try:
-            # 创建新的推送配置
+            # Create new push config
             is_email = push_channel.startswith(('mailto://', 'mailtos://', 'email://'))
             push_config = PushConfig(
                 rule_id=int(rule_id),
@@ -184,38 +184,38 @@ async def handle_add_push_channel(event, client, sender_id, chat_id, rule_id, me
             )
             session.add(push_config)
             
-            # 启用规则的推送功能
+            # Enable rule push
             rule.enable_push = True
             
-            # 检查是否启用了同步功能
+            # Check if sync is enabled
             if rule.enable_sync:
-                logger.info(f"规则 {rule.id} 启用了同步功能，正在同步推送配置到关联规则")
+                logger.info(f"Rule {rule.id} has sync enabled, syncing push config to linked rules")
                 
-                # 获取需要同步的规则列表
+                # Get list of rules to sync
                 sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
                 
-                # 为每个同步规则创建相同的推送配置
+                # Create same push config for each sync rule
                 for sync_rule in sync_rules:
                     sync_rule_id = sync_rule.sync_rule_id
-                    logger.info(f"正在同步推送配置到规则 {sync_rule_id}")
+                    logger.info(f"Syncing push config to rule {sync_rule_id}")
                     
-                    # 获取同步目标规则
+                    # Get sync target rule
                     target_rule = session.query(ForwardRule).get(sync_rule_id)
                     if not target_rule:
-                        logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                        logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                         continue
                     
-                    # 检查目标规则是否已存在相同推送频道
+                    # Check if target rule already has this push channel
                     existing_config = session.query(PushConfig).filter_by(
                         rule_id=sync_rule_id, 
                         push_channel=push_channel
                     ).first()
                     
                     if existing_config:
-                        logger.info(f"目标规则 {sync_rule_id} 已存在推送频道 {push_channel}，跳过")
+                        logger.info(f"Target rule {sync_rule_id} already has push channel {push_channel}, skipping")
                         continue
                     
-                    # 创建新的推送配置
+                    # Create new push config
                     try:
                         sync_push_config = PushConfig(
                             rule_id=sync_rule_id,
@@ -225,61 +225,61 @@ async def handle_add_push_channel(event, client, sender_id, chat_id, rule_id, me
                         )
                         session.add(sync_push_config)
                         
-                        # 启用目标规则的推送功能
+                        # Enable push for target rule
                         target_rule.enable_push = True
                         
-                        logger.info(f"已为规则 {sync_rule_id} 添加推送频道 {push_channel}")
+                        logger.info(f"Added push channel {push_channel} to rule {sync_rule_id}")
                     except Exception as e:
-                        logger.error(f"为规则 {sync_rule_id} 添加推送配置时出错: {str(e)}")
+                        logger.error(f"Error adding push config to rule {sync_rule_id}: {str(e)}")
                         continue
             
-            # 提交更改
+            # Commit changes
             session.commit()
             success = True
-            message_text = "成功添加推送配置"
+            message_text = "Push config added successfully"
         except Exception as db_error:
             session.rollback()
             success = False
-            message_text = f"添加推送配置失败: {str(db_error)}"
-            logger.error(f"添加推送配置到数据库时出错: {str(db_error)}")
+            message_text = f"Failed to add push config: {str(db_error)}"
+            logger.error(f"Error adding push config to database: {str(db_error)}")
         
-        # 清除状态
+        # Clear state
         state_manager.clear_state(sender_id, chat_id)
         
-        # 删除用户消息
+        # Delete user message
         message_chat_id = event.message.chat_id
         bot_client = await get_bot_client()
         try:
             await async_delete_user_message(bot_client, message_chat_id, event.message.id, 0)
         except Exception as e:
-            logger.error(f"删除用户消息失败: {str(e)}")
+            logger.error(f"Failed to delete user message: {str(e)}")
         
-        # 删除原始消息并显示结果
+        # Delete original message and show result
         await message.delete()
         
-        # 获取主界面
+        # Get main module
         main_module = await get_main_module()
         bot_client = main_module.bot_client
         
-        # 发送结果通知
+        # Send result notification
         if success:
             await send_message_and_delete(
                 bot_client,
                 chat_id,
-                f"已成功添加推送频道: {push_channel}",
+                f"Push channel added successfully: {push_channel}",
                 buttons=await bot_handler.create_push_settings_buttons(rule_id)
             )
         else:
             await send_message_and_delete(
                 bot_client,
                 chat_id,
-                f"添加推送频道失败: {message_text}",
+                f"Failed to add push channel: {message_text}",
                 buttons=await bot_handler.create_push_settings_buttons(rule_id)
             )
         
         return True
     except Exception as e:
-        logger.error(f"处理添加推送频道时出错: {str(e)}")
+        logger.error(f"Error handling add push channel: {str(e)}")
         logger.error(traceback.format_exc())
         return False
     finally:

@@ -16,25 +16,25 @@ from handlers.bot_handler import send_welcome_message
 from rss.main import app as rss_app
 from utils.log_config import setup_logging
 
-# 设置Docker日志的默认配置，如果docker-compose.yml中没有配置日志选项将使用这些值
+# Set default Docker log configuration (used if not set in docker-compose.yml)
 os.environ.setdefault('DOCKER_LOG_MAX_SIZE', '10m')
 os.environ.setdefault('DOCKER_LOG_MAX_FILE', '3')
 
-# 设置日志配置
+# Configure logging
 setup_logging()
 
 logger = logging.getLogger(__name__)
 
-# 加载环境变量
+# Load environment variables
 load_dotenv()
 
-# 从环境变量获取配置
+# Read configuration from environment variables
 api_id = os.getenv('API_ID')
 api_hash = os.getenv('API_HASH')
 bot_token = os.getenv('BOT_TOKEN')
 phone_number = os.getenv('PHONE_NUMBER')
 
-# 创建 DBOperations 实例
+# Create DBOperations instance
 db_ops = None
 
 scheduler = None
@@ -42,34 +42,34 @@ chat_updater = None
 
 
 async def init_db_ops():
-    """初始化 DBOperations 实例"""
+    """Initialize DBOperations instance"""
     global db_ops
     if db_ops is None:
         db_ops = await DBOperations.create()
     return db_ops
 
 
-# 创建文件夹
+# Create required directories
 os.makedirs('./sessions', exist_ok=True)
 os.makedirs('./temp', exist_ok=True)
 
 
-# 清空./temp文件夹
+# Clear the ./temp directory
 def clear_temp_dir():
     for file in os.listdir('./temp'):
         os.remove(os.path.join('./temp', file))
 
 
-# 创建客户端
+# Create clients
 user_client = TelegramClient('./sessions/user', api_id, api_hash)
 bot_client = TelegramClient('./sessions/bot', api_id, api_hash)
 
-# 初始化数据库
+# Initialize database
 engine = init_db()
 
 
 def run_rss_server(host: str, port: int):
-    """在新进程中运行 RSS 服务器"""
+    """Run the RSS server in a new process"""
     uvicorn.run(
         rss_app,
         host=host,
@@ -78,271 +78,275 @@ def run_rss_server(host: str, port: int):
 
 
 async def start_clients():
-    # 初始化 DBOperations
+    # Initialize DBOperations
     global db_ops, scheduler, chat_updater
     db_ops = await DBOperations.create()
 
     try:
-        # 启动用户客户端
+        # Start user client
         await user_client.start(phone=phone_number)
         me_user = await user_client.get_me()
-        print(f'用户客户端已启动: {me_user.first_name} (@{me_user.username})')
+        print(f'User client started: {me_user.first_name} (@{me_user.username})')
 
-        # 启动机器人客户端
+        # Start bot client
         await bot_client.start(bot_token=bot_token)
         me_bot = await bot_client.get_me()
-        print(f'机器人客户端已启动: {me_bot.first_name} (@{me_bot.username})')
+        print(f'Bot client started: {me_bot.first_name} (@{me_bot.username})')
 
-        # 设置消息监听器
+        # Set up message listeners
         await setup_listeners(user_client, bot_client)
 
-        # 注册命令
+        # Register commands
         await register_bot_commands(bot_client)
 
-        # 创建并启动调度器
+        # Create and start scheduler
         scheduler = SummaryScheduler(user_client, bot_client)
         await scheduler.start()
-        
-        # 创建并启动聊天信息更新器
+
+        # Create and start chat info updater
         chat_updater = ChatUpdater(user_client)
         await chat_updater.start()
 
-        # 如果启用了 RSS 服务
+        # Start RSS service if enabled
         if os.getenv('RSS_ENABLED', '').lower() == 'true':
             try:
                 rss_host = os.getenv('RSS_HOST', '0.0.0.0')
                 rss_port = int(os.getenv('RSS_PORT', '8000'))
-                logger.info(f"正在启动 RSS 服务 (host={rss_host}, port={rss_port})")
-                
-                # 在新进程中启动 RSS 服务
+                logger.info(f"Starting RSS service (host={rss_host}, port={rss_port})")
+
+                # Start RSS service in a new process
                 rss_process = multiprocessing.Process(
                     target=run_rss_server,
                     args=(rss_host, rss_port)
                 )
                 rss_process.start()
-                logger.info("RSS 服务启动成功")
+                logger.info("RSS service started successfully")
             except Exception as e:
-                logger.error(f"启动 RSS 服务失败: {str(e)}")
+                logger.error(f"Failed to start RSS service: {str(e)}")
                 logger.exception(e)
         else:
-            logger.info("RSS 服务未启用")
+            logger.info("RSS service is disabled")
 
-        # 发送欢迎消息
+        # Send welcome message
         await send_welcome_message(bot_client)
 
-        # 等待两个客户端都断开连接
+        # Wait for both clients to disconnect
         await asyncio.gather(
             user_client.run_until_disconnected(),
             bot_client.run_until_disconnected()
         )
     finally:
-        # 关闭 DBOperations
+        # Close DBOperations
         if db_ops and hasattr(db_ops, 'close'):
             await db_ops.close()
-        # 停止调度器
+        # Stop scheduler
         if scheduler:
             scheduler.stop()
-        # 停止聊天信息更新器
+        # Stop chat info updater
         if chat_updater:
             chat_updater.stop()
-        # 如果 RSS 服务在运行，停止它
+        # Stop RSS service if running
         if 'rss_process' in locals() and rss_process.is_alive():
             rss_process.terminate()
             rss_process.join()
 
 
 async def register_bot_commands(bot):
-    """注册机器人命令"""
-    # # 先清空现有命令
+    """Register bot commands"""
+    # # Clear existing commands first
     # try:
     #     await bot(SetBotCommandsRequest(
     #         scope=types.BotCommandScopeDefault(),
     #         lang_code='',
-    #         commands=[]  # 空列表清空所有命令
+    #         commands=[]  # Empty list clears all commands
     #     ))
-    #     logger.info('已清空现有机器人命令')
+    #     logger.info('Cleared existing bot commands')
     # except Exception as e:
-    #     logger.error(f'清空机器人命令时出错: {str(e)}')
+    #     logger.error(f'Error clearing bot commands: {str(e)}')
 
     commands = [
-        # 基础命令
+        # Basic commands
         BotCommand(
             command='start',
-            description='开始使用'
+            description='Get started'
         ),
         BotCommand(
             command='help',
-            description='查看帮助'
+            description='Show help'
         ),
-        # 绑定和设置
+        # Binding and settings
         BotCommand(
             command='bind',
-            description='绑定源聊天'
+            description='Bind a source chat'
         ),
         BotCommand(
             command='settings',
-            description='管理转发规则'
+            description='Manage forwarding rules'
         ),
         BotCommand(
             command='switch',
-            description='切换当前需要设置的聊天规则'
+            description='Switch the active rule for this chat'
         ),
-        # 关键字管理
+        # Keyword management
         BotCommand(
             command='add',
-            description='添加关键字'
+            description='Add a keyword'
         ),
         BotCommand(
             command='add_regex',
-            description='添加正则关键字'
+            description='Add a regex keyword'
         ),
         BotCommand(
             command='add_all',
-            description='添加普通关键字到所有规则'
+            description='Add a keyword to all rules'
         ),
         BotCommand(
             command='add_regex_all',
-            description='添加正则表达式到所有规则'
+            description='Add a regex to all rules'
         ),
         BotCommand(
             command='list_keyword',
-            description='列出所有关键字'
+            description='List all keywords'
         ),
         BotCommand(
             command='remove_keyword',
-            description='删除关键字'
+            description='Remove a keyword'
         ),
         BotCommand(
             command='remove_keyword_by_id',
-            description='按ID删除关键字'
+            description='Remove a keyword by ID'
         ),
         BotCommand(
             command='remove_all_keyword',
-            description='删除当前频道绑定的所有规则的指定关键字'
+            description='Remove a keyword from all rules bound to this chat'
         ),
-        # 替换规则管理
+        # Replace rule management
         BotCommand(
             command='replace',
-            description='添加替换规则'
+            description='Add a replace rule'
         ),
         BotCommand(
             command='replace_all',
-            description='添加替换规则到所有规则'
+            description='Add a replace rule to all rules'
         ),
         BotCommand(
             command='list_replace',
-            description='列出所有替换规则'
+            description='List all replace rules'
         ),
         BotCommand(
             command='remove_replace',
-            description='删除替换规则'
+            description='Remove a replace rule'
         ),
-        # 导入导出功能
+        # Import/export
         BotCommand(
             command='export_keyword',
-            description='导出当前规则的关键字'
+            description='Export keywords for the current rule'
         ),
         BotCommand(
             command='export_replace',
-            description='导出当前规则的替换规则'
+            description='Export replace rules for the current rule'
         ),
         BotCommand(
             command='import_keyword',
-            description='导入普通关键字'
+            description='Import plain keywords'
         ),
         BotCommand(
             command='import_regex_keyword',
-            description='导入正则表达式关键字'
+            description='Import regex keywords'
         ),
         BotCommand(
             command='import_replace',
-            description='导入替换规则'
+            description='Import replace rules'
         ),
-        # UFB相关功能
+        # UFB features
         BotCommand(
             command='ufb_bind',
-            description='绑定ufb域名'
+            description='Bind a UFB domain'
         ),
         BotCommand(
             command='ufb_unbind',
-            description='解绑ufb域名'
+            description='Unbind a UFB domain'
         ),
         BotCommand(
             command='ufb_item_change',
-            description='切换ufb同步配置类型'
+            description='Switch UFB sync config type'
         ),
         BotCommand(
             command='clear_all_keywords',
-            description='清除当前规则的所有关键字'
+            description='Clear all keywords for the current rule'
         ),
         BotCommand(
             command='clear_all_keywords_regex',
-            description='清除当前规则的所有正则关键字'
+            description='Clear all regex keywords for the current rule'
         ),
         BotCommand(
             command='clear_all_replace',
-            description='清除当前规则的所有替换规则'
+            description='Clear all replace rules for the current rule'
         ),
         BotCommand(
             command='copy_keywords',
-            description='复制参数规则的关键字到当前规则'
+            description='Copy keywords from another rule to the current rule'
         ),
         BotCommand(
             command='copy_keywords_regex',
-            description='复制参数规则的正则关键字到当前规则'
+            description='Copy regex keywords from another rule to the current rule'
         ),
         BotCommand(
             command='copy_replace',
-            description='复制参数规则的替换规则到当前规则'
+            description='Copy replace rules from another rule to the current rule'
         ),
         BotCommand(
             command='copy_rule',
-            description='复制参数规则到当前规则'
+            description='Copy another rule to the current rule'
         ),
         BotCommand(
             command='changelog',
-            description='查看更新日志'
+            description='View changelog'
         ),
         BotCommand(
             command='list_rule',
-            description='列出所有转发规则'
+            description='List all forwarding rules'
         ),
         BotCommand(
             command='delete_rule',
-            description='删除转发规则'
+            description='Delete a forwarding rule'
         ),
         BotCommand(
             command='delete_rss_user',
-            description='删除RSS用户'
+            description='Delete RSS user'
+        ),
+        BotCommand(
+            command='rss',
+            description='Open RSS feed dashboard'
         ),
 
 
         # BotCommand(
         #     command='clear_all',
-        #     description='慎用！清空所有数据'
+        #     description='WARNING: Clear all data'
         # ),
     ]
 
     try:
         result = await bot(SetBotCommandsRequest(
             scope=types.BotCommandScopeDefault(),
-            lang_code='',  # 空字符串表示默认语言
+            lang_code='',  # Empty string = default language
             commands=commands
         ))
         if result:
-            logger.info('已成功注册机器人命令')
+            logger.info('Bot commands registered successfully')
         else:
-            logger.error('注册机器人命令失败')
+            logger.error('Failed to register bot commands')
     except Exception as e:
-        logger.error(f'注册机器人命令时出错: {str(e)}')
+        logger.error(f'Error registering bot commands: {str(e)}')
 
 
 if __name__ == '__main__':
-    # 运行事件循环
+    # Run event loop
     loop = asyncio.get_event_loop()
     try:
         loop.run_until_complete(start_clients())
     except KeyboardInterrupt:
-        print("正在关闭客户端...")
+        print("Shutting down clients...")
     finally:
         loop.close()

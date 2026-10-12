@@ -11,30 +11,30 @@ logger = logging.getLogger(__name__)
 
 class InitFilter(BaseFilter):
     """
-    初始化过滤器，为context添加基本信息
+    Initialization filter — populates the context with basic information.
     """
-    
+
     async def _process(self, context):
         """
-        添加原始链接和发送者信息
-        
+        Add original link and sender information to the context.
+
         Args:
-            context: 消息上下文
-            
+            context: message context
+
         Returns:
-            bool: 是否继续处理
+            bool: whether to continue processing
         """
         rule = context.rule
         event = context.event
 
-        # logger.info(f"InitFilter处理消息前，context: {context.__dict__}")
+        # logger.info(f"InitFilter before processing, context: {context.__dict__}")
         try:
-            #处理媒体组消息
+            # Handle media group messages
             if event.message.grouped_id:
-                # 等待更长时间让所有媒体消息到达
+                # Wait longer to allow all media messages to arrive
                 # await asyncio.sleep(1)
-                
-                # 收集媒体组的所有消息
+
+                # Collect all messages in the media group
                 try:
                     async for message in event.client.iter_messages(
                         event.chat_id,
@@ -43,18 +43,18 @@ class InitFilter(BaseFilter):
                         max_id=event.message.id + 10
                     ):
                         if message.grouped_id == event.message.grouped_id:
-                            if message.text:    
-                                # 保存第一条消息的文本和按钮
+                            if message.text:
+                                # Save the first message's text and buttons
                                 context.message_text = message.text or ''
                                 context.original_message_text = message.text or ''
                                 context.check_message_text = message.text or ''
                                 context.buttons = message.buttons if hasattr(message, 'buttons') else None
-                            logger.info(f'获取到媒体组文本并添加到context: {message.text}')
-                        
+                            logger.info(f'Retrieved media group text and added to context: {message.text}')
+
                 except Exception as e:
-                    logger.error(f'收集媒体组消息时出错: {str(e)}')
-                    context.errors.append(f"收集媒体组消息错误: {str(e)}")
-           
+                    logger.error(f'Error collecting media group messages: {str(e)}')
+                    context.errors.append(f"Media group collection error: {str(e)}")
+
         finally:
-            # logger.info(f"InitFilter处理消息后，context: {context.__dict__}")
+            # logger.info(f"InitFilter after processing, context: {context.__dict__}")
             return True

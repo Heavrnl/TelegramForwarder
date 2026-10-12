@@ -5,29 +5,29 @@ from dotenv import load_dotenv
 
 def setup_logging():
     """
-    配置日志系统，将所有日志输出到标准输出，
-    由Docker收集并管理日志
+    Configure the logging system to output all logs to stdout,
+    where they will be collected and managed by Docker.
     """
-    # 加载环境变量
+    # Load environment variables
     load_dotenv()
-    
-    # 创建根日志记录器
+
+    # Create the root logger
     root_logger = logging.getLogger()
-    
-    # 设置日志级别 - 默认使用INFO级别
+
+    # Set log level — INFO by default
     root_logger.setLevel(logging.INFO)
-    
-    # 创建一个处理器，用于将日志输出到控制台
+
+    # Create a handler to output logs to the console
     console_handler = logging.StreamHandler()
-    
-    # 创建格式化器
+
+    # Create a formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    
-    # 将格式化器添加到处理器
+
+    # Attach the formatter to the handler
     console_handler.setFormatter(formatter)
-    
-    # 将处理器添加到根日志记录器
+
+    # Attach the handler to the root logger
     root_logger.addHandler(console_handler)
-    
-    # 返回配置的日志记录器
-    return root_logger 
+
+    # Return the configured logger
+    return root_logger

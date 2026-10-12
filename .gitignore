@@ -1,7 +1,7 @@
-# 环境变量文件
+# Environment variables
 .env
 
-# 数据库文件
+# Database files
 *.db
 
 # Python
@@ -9,14 +9,14 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# 虚拟环境
+# Virtual environments
 venv/
 env/
 ENV/
 
-# Telethon session 文件
+# Telethon session files
 *.session
-*.session-journal 
+*.session-journal
 /.idea
 /example
 /config
@@ -27,9 +27,12 @@ ufb/config/config.json
 db/forward.db1
 handlers/bot_handler copy.py
 /temp
-使用场景示例.md
+use_case_examples.md
 /rss/media
 /rss/data
 
 /logs
 logs/telegram_forwarder.log
+
+# Local pre-deploy backups
+.fix-backup-*/

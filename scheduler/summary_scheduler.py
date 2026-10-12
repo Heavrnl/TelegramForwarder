@@ -21,67 +21,67 @@ MAX_SEND_ATTEMPTS = 2
 
 class SummaryScheduler:
     def __init__(self, user_client: TelegramClient, bot_client: TelegramClient):
-        self.tasks = {}  # 存储所有定时任务 {rule_id: task}
+        self.tasks = {}  # All scheduled tasks {rule_id: task}
         self.timezone = pytz.timezone(DEFAULT_TIMEZONE)
         self.user_client = user_client
         self.bot_client = bot_client
-        # 添加信号量来限制并发请求
-        self.request_semaphore = asyncio.Semaphore(2)  # 最多同时执行2个请求
-        # 从环境变量获取配置
+        # Semaphore to limit concurrent requests
+        self.request_semaphore = asyncio.Semaphore(2)  # Max 2 concurrent requests
+        # Load config from environment variables
         self.batch_size = int(os.getenv('SUMMARY_BATCH_SIZE', 20))
         self.batch_delay = int(os.getenv('SUMMARY_BATCH_DELAY', 2))
 
     async def schedule_rule(self, rule):
-        """为规则创建或更新定时任务"""
+        """Create or update scheduled task for a rule"""
         try:
-            # 如果规则已有任务，先取消
+            # If rule already has a task, cancel it first
             if rule.id in self.tasks:
                 old_task = self.tasks[rule.id]
                 old_task.cancel()
-                logger.info(f"已取消规则 {rule.id} 的旧任务")
+                logger.info(f"Cancelled old task for rule {rule.id}")
                 del self.tasks[rule.id]
 
-            # 如果启用了AI总结，创建新任务
+            # If AI summary is enabled, create a new task
             if rule.is_summary:
-                # 计算下一次执行时间
+                # Calculate next run time
                 now = datetime.now(self.timezone)
                 next_time = self._get_next_run_time(now, rule.summary_time)
                 wait_seconds = (next_time - now).total_seconds()
 
-                logger.info(f"规则 {rule.id} 的下一次执行时间: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
-                logger.info(f"等待时间: {wait_seconds:.2f} 秒")
+                logger.info(f"Next run time for rule {rule.id}: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.info(f"Wait time: {wait_seconds:.2f}s")
 
                 task = asyncio.create_task(self._run_summary_task(rule))
                 self.tasks[rule.id] = task
-                logger.info(f"已为规则 {rule.id} 创建新的总结任务，时间: {rule.summary_time}")
+                logger.info(f"Created new summary task for rule {rule.id}, time: {rule.summary_time}")
             else:
-                logger.info(f"规则 {rule.id} 的总结功能已关闭，不创建新任务")
+                logger.info(f"Summary disabled for rule {rule.id}, no task created")
 
         except Exception as e:
-            logger.error(f"调度规则 {rule.id} 时出错: {str(e)}")
-            logger.error(f"错误详情: {traceback.format_exc()}")
+            logger.error(f"Error scheduling rule {rule.id}: {str(e)}")
+            logger.error(f"Error details: {traceback.format_exc()}")
 
     async def _run_summary_task(self, rule):
-        """运行单个规则的总结任务"""
+        """Run summary task for a single rule"""
         while True:
             try:
-                # 计算下一次执行时间
+                # Calculate next run time
                 now = datetime.now(self.timezone)
                 target_time = self._get_next_run_time(now, rule.summary_time)
 
-                # 等待到执行时间
+                # Wait until execution time
                 wait_seconds = (target_time - now).total_seconds()
                 await asyncio.sleep(wait_seconds)
 
-                # 执行总结任务
+                # Execute summary task
                 await self._execute_summary(rule.id)
 
             except asyncio.CancelledError:
-                logger.info(f"规则 {rule.id} 的旧任务已取消")
+                logger.info(f"Old task for rule {rule.id} cancelled")
                 break
             except Exception as e:
-                logger.error(f"规则 {rule.id} 的总结任务出错: {str(e)}")
-                await asyncio.sleep(60)  # 出错后等待一分钟再重试
+                logger.error(f"Summary task error for rule {rule.id}: {str(e)}")
+                await asyncio.sleep(60)  # Wait 1 minute before retry on error
 
     def _split_message(self, text: str, max_length: int = MAX_MESSAGE_PART_LENGTH):
         if not text:
@@ -114,7 +114,7 @@ class SummaryScheduler:
         return parts
 
     def _get_next_run_time(self, now, target_time):
-        """计算下一次运行时间"""
+        """Calculate next run time"""
         hour, minute = map(int, target_time.split(':'))
         next_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
@@ -124,7 +124,7 @@ class SummaryScheduler:
         return next_time
 
     async def _execute_summary(self, rule_id, is_now=False):
-        """执行单个规则的总结任务"""
+        """Execute the summary task for a single rule"""
         session = get_session()
         try:
             rule = session.query(ForwardRule).get(rule_id)
@@ -138,14 +138,14 @@ class SummaryScheduler:
 
                 messages = []
 
-                # 计算时间范围
+                # Calculate time range
                 now = datetime.now(self.timezone)
                 summary_hour, summary_minute = map(int, rule.summary_time.split(':'))
 
-                # 设置结束时间为当前时间
+                # End time is now
                 end_time = now
 
-                # 设置开始时间为前一天的总结时间
+                # Start time is yesterday's summary time
                 start_time = now.replace(
                     hour=summary_hour,
                     minute=summary_minute,
@@ -153,14 +153,14 @@ class SummaryScheduler:
                     microsecond=0
                 ) - timedelta(days=1)
 
-                logger.info(f'规则 {rule_id} 获取消息时间范围: {start_time} 到 {end_time}')
+                logger.info(f'Rule {rule_id} fetching messages in range: {start_time} to {end_time}')
 
                 async with self.request_semaphore:
                     messages = []
                     current_offset = 0
 
                     while True:
-                        batch = []  # 移到循环外部
+                        batch = []  # Initialized outside inner loop
                         messages_batch = await self.user_client.get_messages(
                             source_chat_id,
                             limit=self.batch_size,
@@ -170,60 +170,60 @@ class SummaryScheduler:
                         )
 
                         if not messages_batch:
-                            logger.info(f'规则 {rule_id} 没有获取到新消息，退出循环')
+                            logger.info(f'Rule {rule_id} no new messages, exiting loop')
                             break
 
-                        logger.info(f'规则 {rule_id} 获取到批次消息数量: {len(messages_batch)}')
+                        logger.info(f'Rule {rule_id} fetched batch of {len(messages_batch)} messages')
 
                         should_break = False
                         for message in messages_batch:
                             msg_time = message.date.astimezone(self.timezone)
                             preview = message.text[:20] + '...' if message.text else 'None'
-                            logger.info(f'规则 {rule_id} 处理消息 - 时间: {msg_time}, 预览: {preview}, 长度: {len(message.text) if message.text else 0}')
+                            logger.info(f'Rule {rule_id} processing message - time: {msg_time}, preview: {preview}, len: {len(message.text) if message.text else 0}')
 
-                            # 跳过未来时间的消息
+                            # Skip messages from the future
                             if msg_time > end_time:
                                 continue
 
-                            # 如果消息在有效时间范围内，添加到批次
+                            # Add to batch if within valid time range
                             if start_time <= msg_time <= end_time and message.text:
                                 batch.append(message.text)
 
-                            # 如果遇到早于开始时间的消息，标记退出
+                            # If message is before start time, mark exit
                             if msg_time < start_time:
-                                logger.info(f'规则 {rule_id} 消息时间 {msg_time} 早于开始时间 {start_time}，停止获取')
+                                logger.info(f'Rule {rule_id} message time {msg_time} is before start {start_time}, stopping fetch')
                                 should_break = True
                                 break
 
-                        # 如果当前批次有消息，添加到总消息列表
+                        # Add batch messages to full list
                         if batch:
                             messages.extend(batch)
-                            logger.info(f'规则 {rule_id} 当前批次添加了 {len(batch)} 条消息，总消息数: {len(messages)}')
+                            logger.info(f'Rule {rule_id} added {len(batch)} messages in batch, total: {len(messages)}')
 
-                        # 更新offset为最后一条消息的ID
+                        # Update offset to last message ID
                         current_offset = messages_batch[-1].id
 
-                        # 如果需要退出循环
+                        # Exit loop if flagged
                         if should_break:
                             break
 
-                        # 在批次之间等待
+                        # Wait between batches
                         await asyncio.sleep(self.batch_delay)
 
                 if not messages:
-                    logger.info(f'规则 {rule_id} 没有需要总结的消息')
+                    logger.info(f'Rule {rule_id} has no messages to summarize')
                     return
 
                 all_messages = '\n'.join(messages)
 
-                # 检查AI模型设置，如未设置则使用默认模型
+                # Check AI model setting, use default if not set
                 if not rule.ai_model:
                     rule.ai_model = DEFAULT_AI_MODEL
-                    logger.info(f"使用默认AI模型进行总结: {rule.ai_model}")
+                    logger.info(f"Using default AI model for summary: {rule.ai_model}")
                 else:
-                    logger.info(f"使用规则配置的AI模型进行总结: {rule.ai_model}")
+                    logger.info(f"Using rule-configured AI model for summary: {rule.ai_model}")
 
-                # 获取AI提供者并处理总结
+                # Get AI provider and process summary
                 provider = await get_ai_provider(rule.ai_model)
                 summary = await provider.process_message(
                     all_messages,
@@ -234,9 +234,9 @@ class SummaryScheduler:
 
                 if summary:
                     duration_hours = round((end_time - start_time).total_seconds() / 3600)
-                    header = f"📋 {rule.source_chat.name} - {duration_hours}小时消息总结\n"
-                    header += f"🕐 时间范围: {start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}\n"
-                    header += f"📊 消息数量: {len(messages)} 条\n\n"
+                    header = f"📋 {rule.source_chat.name} - {duration_hours}h Message Summary\n"
+                    header += f"🕐 Time range: {start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}\n"
+                    header += f"📊 Messages: {len(messages)}\n\n"
 
                     summary_parts = self._split_message(summary, MAX_MESSAGE_PART_LENGTH)
 
@@ -245,9 +245,9 @@ class SummaryScheduler:
                         if i == 0:
                             message_to_send = header + part
                         else:
-                            message_to_send = f"📋 {rule.source_chat.name} - 总结报告 (续 {i+1}/{len(summary_parts)})\n\n" + part
+                            message_to_send = f"📋 {rule.source_chat.name} - Summary Report (cont. {i+1}/{len(summary_parts)})\n\n" + part
 
-                        # 发送消息，支持重试机制
+                        # Send message with retry support
                         current_message = None
                         use_markdown = True
                         attempt = 0
@@ -271,31 +271,31 @@ class SummaryScheduler:
 
                             except errors.MarkupInvalidError as e:
                                 if use_markdown:
-                                    logger.warning(f"Markdown解析失败: {e}. 降级为纯文本后重试。")
+                                    logger.warning(f"Markdown parse failed: {e}. Retrying as plain text.")
                                     use_markdown = False
-                                    continue  # 立即重试，使用纯文本格式
+                                    continue  # Retry immediately with plain text
                                 else:
                                     # This should not happen, but if it does, it's a bug.
-                                    logger.error(f"纯文本发送时出现意外的 MarkupInvalidError : {e}")
+                                    logger.error(f"Unexpected MarkupInvalidError during plain text send: {e}")
                                     raise # Fail fast
 
                             except errors.FloodWaitError as fwe:
                                 if attempt < MAX_SEND_ATTEMPTS - 1:
-                                    logger.warning(f"触发Telegram发送频率限制，等待 {fwe.seconds} 秒后重试...")
+                                    logger.warning(f"Telegram flood limit hit, waiting {fwe.seconds}s before retry...")
                                     await asyncio.sleep(fwe.seconds)
                                     attempt += 1
                                 else:
-                                    logger.error("重试次数已达上限，发送失败。")
+                                    logger.error("Max retries reached, send failed.")
                                     raise
 
                             except Exception as send_error:
-                                logger.error(f"发送总结第 {i+1} 部分时出错: {str(send_error)}")
+                                logger.error(f"Error sending summary part {i+1}: {str(send_error)}")
                                 if attempt >= MAX_SEND_ATTEMPTS - 1:
                                     raise # Re-raise on last attempt
                                 await asyncio.sleep(1) # Wait a bit before retrying on other errors
                                 attempt += 1
 
-                        # 统一处理第一条消息的赋值
+                        # Track first message
                         if i == 0:
                             summary_message = current_message
 
@@ -303,67 +303,67 @@ class SummaryScheduler:
                         try:
                             await self.bot_client.pin_message(target_chat_id, summary_message)
                         except Exception as pin_error:
-                            logger.warning(f"置顶总结消息失败: {str(pin_error)}")
+                            logger.warning(f"Failed to pin summary message: {str(pin_error)}")
 
-                    logger.info(f'规则 {rule_id} 总结完成，共处理 {len(messages)} 条消息，分为 {len(summary_parts)} 部分发送')
+                    logger.info(f'Rule {rule_id} summary complete, {len(messages)} messages processed in {len(summary_parts)} part(s)')
 
             except Exception as e:
-                logger.error(f'执行规则 {rule_id} 的总结任务时出错: {str(e)}')
-                logger.error(f'错误详情: {traceback.format_exc()}')
+                logger.error(f'Error executing summary task for rule {rule_id}: {str(e)}')
+                logger.error(f'Error details: {traceback.format_exc()}')
 
         finally:
             session.close()
 
     async def start(self):
-        """启动调度器"""
-        logger.info("开始启动调度器...")
+        """Start the scheduler"""
+        logger.info("Starting scheduler...")
         session = get_session()
         try:
-            # 获取所有启用了总结功能的规则
+            # Get all rules with summary enabled
             rules = session.query(ForwardRule).filter_by(is_summary=True).all()
-            logger.info(f"找到 {len(rules)} 个启用了总结功能的规则")
+            logger.info(f"Found {len(rules)} rule(s) with summary enabled")
 
             for rule in rules:
-                logger.info(f"正在为规则 {rule.id} ({rule.source_chat.name} -> {rule.target_chat.name}) 创建调度任务")
-                logger.info(f"总结时间: {rule.summary_time}")
+                logger.info(f"Creating scheduled task for rule {rule.id} ({rule.source_chat.name} -> {rule.target_chat.name})")
+                logger.info(f"Summary time: {rule.summary_time}")
 
-                # 计算下一次执行时间
+                # Calculate next run time
                 now = datetime.now(self.timezone)
                 next_time = self._get_next_run_time(now, rule.summary_time)
                 wait_seconds = (next_time - now).total_seconds()
 
-                logger.info(f"下一次执行时间: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
-                logger.info(f"等待时间: {wait_seconds:.2f} 秒")
+                logger.info(f"Next run time: {next_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.info(f"Wait time: {wait_seconds:.2f}s")
 
                 await self.schedule_rule(rule)
 
             if not rules:
-                logger.info("没有找到启用了总结功能的规则")
+                logger.info("No rules with summary enabled found")
 
-            logger.info("调度器启动完成")
+            logger.info("Scheduler started")
         except Exception as e:
-            logger.error(f"启动调度器时出错: {str(e)}")
-            logger.error(f"错误详情: {traceback.format_exc()}")
+            logger.error(f"Error starting scheduler: {str(e)}")
+            logger.error(f"Error details: {traceback.format_exc()}")
         finally:
             session.close()
 
     def stop(self):
-        """停止所有任务"""
+        """Stop all tasks"""
         for task in self.tasks.values():
             task.cancel()
         self.tasks.clear()
 
     async def execute_all_summaries(self):
-        """立即执行所有启用了总结功能的规则"""
+        """Immediately execute all rules with summary enabled"""
         session = get_session()
         try:
             rules = session.query(ForwardRule).filter_by(is_summary=True).all()
-            # 使用 gather 但限制并发数
+            # Use gather with concurrency limit
             tasks = [self._execute_summary(rule.id, is_now=True) for rule in rules]
-            for i in range(0, len(tasks), 2):  # 每次执行2个任务
+            for i in range(0, len(tasks), 2):  # Execute 2 tasks at a time
                 batch = tasks[i:i+2]
                 await asyncio.gather(*batch)
-                await asyncio.sleep(1)  # 每批次之间稍微暂停
+                await asyncio.sleep(1)  # Brief pause between batches
 
         finally:
             session.close()

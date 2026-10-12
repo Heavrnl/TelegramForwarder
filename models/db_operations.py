@@ -24,24 +24,24 @@ class DBOperations:
 
     @classmethod
     async def create(cls):
-        """创建DBOperations实例"""
+        """Create a DBOperations instance"""
         instance = cls()
         await instance.init_ufb()
         return instance
 
     async def init_ufb(self):
-        """初始化UFB客户端"""
+        """Initialize the UFB client"""
         try:
-            # 从环境变量获取UFB配置
-            logger.info("初始化UFB客户端")
+            # Retrieve UFB configuration from environment variables
+            logger.info("Initializing UFB client")
             is_ufb = os.getenv('UFB_ENABLED', 'false').lower() == 'true'
             if is_ufb:
                 server_url = os.getenv('UFB_SERVER_URL', '')
                 token = os.getenv('UFB_TOKEN')
-                logger.info(f"UFB配置: server_url={server_url}, token={token and '***'}")
-                
+                logger.info(f"UFB config: server_url={server_url}, token={token and '***'}")
+
                 if server_url and token:
-                    # 处理URL
+                    # Normalize URL scheme
                     if not server_url.startswith(('ws://', 'wss://')):
                         if server_url.startswith('http://'):
                             server_url = f"ws://{server_url[7:]}"
@@ -49,57 +49,57 @@ class DBOperations:
                             server_url = f"wss://{server_url[8:]}"
                         else:
                             server_url = f"wss://{server_url}"
-                    
-                    logger.info(f"处理后的URL: {server_url}")
+
+                    logger.info(f"Normalized URL: {server_url}")
                     self.ufb_client = UFBClient()
-                    logger.info("UFB客户端已创建")
-                    
+                    logger.info("UFB client created")
+
                     try:
                         await self.ufb_client.start(server_url=server_url, token=token)
-                        logger.info("UFB客户端已启动")
+                        logger.info("UFB client started")
                     except Exception as e:
-                        logger.error(f"UFB客户端启动失败: {str(e)}")
+                        logger.error(f"UFB client failed to start: {str(e)}")
                         self.ufb_client = None
                 else:
-                    logger.warning("UFB配置不完整，未启用UFB功能")
+                    logger.warning("UFB configuration incomplete, UFB feature not enabled")
                     self.ufb_client = None
             else:
-                logger.info("UFB未启用")
+                logger.info("UFB not enabled")
         except Exception as e:
-            logger.error(f"初始化UFB时出错: {str(e)}")
+            logger.error(f"Error initializing UFB: {str(e)}")
             self.ufb_client = None
-    
-    
+
+
     async def sync_to_server(self,session,rule_id):
-        """同步UFB配置"""
+        """Sync UFB configuration to server"""
         if self.ufb_client and os.getenv('UFB_ENABLED').lower() == 'true':
-            # 通过rule_id获取规则ufb是否开启
+            # Check whether UFB is enabled for this rule
             rule = session.query(ForwardRule).filter(ForwardRule.id == rule_id).first()
             ufb_domain = rule.ufb_domain
             if rule.is_ufb and ufb_domain:
                 item = rule.ufb_item
-                # 获取规则的所有非正则表达关键字
+                # Retrieve all non-regex keywords for this rule
                 normal_keywords = session.query(Keyword).filter(
                     Keyword.rule_id == rule_id,
                     Keyword.is_regex == False
                 ).all()
-                
-                # 获取规则的所有正则表达关键字
+
+                # Retrieve all regex keywords for this rule
                 regex_keywords = session.query(Keyword).filter(
                     Keyword.rule_id == rule_id,
                     Keyword.is_regex == True
                 ).all()
 
-                # 获取../ufb/config/config.json文件
+                # Load the UFB config file
                 config_file = Path(__file__).parent.parent / 'ufb' / 'config' / 'config.json'
-                # 读取文件
+                # Read the file
                 with open(config_file, 'r', encoding='utf-8') as file:
                     config = json.load(file)
 
-                # 在userConfig中找到对应domain的配置
+                # Find the matching domain config in userConfig
                 for user_config in config.get('userConfig', []):
                     if user_config.get('domain') == ufb_domain:
-                        # 根据item类型更新关键字
+                        # Select keyword config based on item type
                         if item == 'main':
                             keywords_config = user_config.get('mainAndSubPageKeywords', {})
                         elif item == 'content':
@@ -109,12 +109,12 @@ class DBOperations:
                         elif item == 'content_username':
                             keywords_config = user_config.get('contentPageUserKeywords', {})
 
-                        # 更新关键字列表
+                        # Update keyword lists
                         keywords_config['keywords'] = [k.keyword for k in normal_keywords]
                         keywords_config['regexPatterns'] = [k.keyword for k in regex_keywords]
 
-                        # 保存回对应的位置
-                        if item == 'main':  
+                        # Write back to the corresponding section
+                        if item == 'main':
                             user_config['mainAndSubPageKeywords'] = keywords_config
                         elif item == 'content':
                             user_config['contentPageKeywords'] = keywords_config
@@ -123,66 +123,66 @@ class DBOperations:
                         elif item == 'content_username':
                             user_config['contentPageUserKeywords'] = keywords_config
                         else:
-                            logger.error(f"未设置UFB_ITEM环境变量")
+                            logger.error(f"UFB_ITEM environment variable not set")
                             return
                         break
-                
-                # 更新时间戳
+
+                # Update timestamp
                 config['globalConfig']['SYNC_CONFIG']['lastSyncTime'] = int(time.time() * 1000)
-                # 保存到本地文件
+                # Save to local file
                 with open(config_file, 'w', encoding='utf-8') as file:
                     json.dump(config, file, ensure_ascii=False, indent=2)
 
-                # 更新配置到服务器
+                # Push updated config to server
                 if self.ufb_client.is_connected:
                     await self.ufb_client.websocket.send(json.dumps({
                         "additional_info": "to_server",
                         "type": "update",
                         **config
                     }))
-                    logger.info("UFB配置已同步")
+                    logger.info("UFB configuration synced")
                 else:
-                    logger.warning("UFB客户端未连接，无法同步配置")
+                    logger.warning("UFB client not connected, cannot sync configuration")
             else:
-                logger.warning("UFB未开启，无法同步配置")
+                logger.warning("UFB not enabled, cannot sync configuration")
         else:
-            logger.warning("UFB客户端未初始化，无法同步配置")
+            logger.warning("UFB client not initialized, cannot sync configuration")
 
     async def sync_from_json(self, config):
-        """从收到的JSON配置同步关键字到数据库
-        
+        """Sync keywords from received JSON configuration to the database
+
         Args:
-            config: 收到的配置数据
+            config: Received configuration data
         """
-        logger.info(f"从JSON同步关键字到数据库")
+        logger.info(f"Syncing keywords from JSON to database")
         session = get_session()
         try:
-            # 获取所有启用了UFB的规则
+            # Retrieve all rules with UFB enabled
             ufb_rules = session.query(ForwardRule).filter(
                 ForwardRule.is_ufb == True,
                 ForwardRule.ufb_domain != None
             ).all()
-            
+
             if not ufb_rules:
-                logger.info("没有找到启用UFB的规则")
+                logger.info("No UFB-enabled rules found")
                 return
             logger.info(f"ufb_rules: {ufb_rules}")
-            
-            # 遍历所有启用UFB的规则
+
+            # Iterate over all UFB-enabled rules
             for rule in ufb_rules:
-                # 获取item类型
+                # Get item type
                 item = rule.ufb_item
                 logger.info(f"item: {item}")
                 if not item:
-                    logger.error("未设置UFB_ITEM环境变量")
-                    continue  # 跳过没有设置 item 的规则
-                
-                # 在收到的配置中查找对应domain的配置
+                    logger.error("UFB_ITEM environment variable not set")
+                    continue  # Skip rules without item set
+
+                # Find the matching domain config in the received config
                 for user_config in config.get('userConfig', []):
                     if user_config.get('domain') == rule.ufb_domain:
-                        logger.info(f"找到匹配的domain配置: {rule.ufb_domain}")
-                        
-                        # 根据item类型获取关键字配置
+                        logger.info(f"Found matching domain config: {rule.ufb_domain}")
+
+                        # Select keyword config based on item type
                         if item == 'main':
                             keywords_config = user_config.get('mainAndSubPageKeywords', {})
                         elif item == 'content':
@@ -192,15 +192,15 @@ class DBOperations:
                         elif item == 'content_username':
                             keywords_config = user_config.get('contentPageUserKeywords', {})
                         else:
-                            logger.error(f"未设置UFB_ITEM环境变量")
+                            logger.error(f"UFB_ITEM environment variable not set")
                             continue
-                        
-                        # 清空现有关键字
+
+                        # Clear existing keywords
                         session.query(Keyword).filter(
                             Keyword.rule_id == rule.id
                         ).delete()
-                        
-                        # 添加普通关键字
+
+                        # Add plain keywords
                         for keyword in keywords_config.get('keywords', []):
                             new_keyword = Keyword(
                                 rule_id=rule.id,
@@ -208,8 +208,8 @@ class DBOperations:
                                 is_regex=False
                             )
                             session.add(new_keyword)
-                            
-                        # 添加正则关键字
+
+                        # Add regex keywords
                         for pattern in keywords_config.get('regexPatterns', []):
                             new_keyword = Keyword(
                                 rule_id=rule.id,
@@ -217,39 +217,39 @@ class DBOperations:
                                 is_regex=True
                             )
                             session.add(new_keyword)
-                        
+
                         session.commit()
-                        logger.info(f"已从JSON同步关键字到规则 {rule.id} (domain: {rule.ufb_domain})")
-                        break  # 找到匹配的domain后跳出内层循环
+                        logger.info(f"Synced keywords from JSON to rule {rule.id} (domain: {rule.ufb_domain})")
+                        break  # Stop inner loop after matching domain
         finally:
             session.close()
 
     async def add_keywords(self, session, rule_id, keywords, is_regex=False, is_blacklist=False):
-        """添加关键字到规则
+        """Add keywords to a rule
 
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            keywords: 关键字列表
-            is_regex: 是否是正则表达式
-            is_blacklist: 是否为黑名单关键字
+            session: Database session
+            rule_id: Rule ID
+            keywords: List of keywords
+            is_regex: Whether the keywords are regular expressions
+            is_blacklist: Whether the keywords belong to the blacklist
 
         Returns:
-            tuple: (成功数量, 重复数量)
+            tuple: (success count, duplicate count)
         """
         success_count = 0
         duplicate_count = 0
 
-        # 获取当前规则
+        # Fetch the target rule
         rule = session.query(ForwardRule).get(rule_id)
         if not rule:
-            logger.error(f"规则ID {rule_id} 不存在")
+            logger.error(f"Rule ID {rule_id} does not exist")
             return 0, 0
 
-        # 处理单个规则的关键字添加
+        # Add keywords for this rule
         for keyword in keywords:
             try:
-                # 检查是否存在相同的关键字（考虑黑白名单）
+                # Check for an existing keyword with the same blacklist/whitelist flag
                 existing_keyword = session.query(Keyword).filter(
                     Keyword.rule_id == rule_id,
                     Keyword.keyword == keyword,
@@ -270,45 +270,45 @@ class DBOperations:
                 session.flush()
                 success_count += 1
             except Exception as e:
-                logger.error(f"添加关键字时出错: {str(e)}")
+                logger.error(f"Error adding keyword: {str(e)}")
                 session.rollback()
                 duplicate_count += 1
                 continue
 
-        # 检查是否启用了同步功能
+        # Check whether sync is enabled for this rule
         if rule.enable_sync:
-            logger.info(f"规则 {rule_id} 启用了同步功能，正在同步关键字到关联规则")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule_id} has sync enabled, syncing keywords to linked rules")
+            # Get the list of rules to sync to
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule_id).all()
-            
-            # 为每个同步规则添加相同的关键字
+
+            # Add the same keywords to each sync target rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步关键字到规则 {sync_rule_id}")
-                
-                # 获取同步目标规则
+                logger.info(f"Syncing keywords to rule {sync_rule_id}")
+
+                # Fetch the sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} does not exist, skipping")
                     continue
-                
-                # 为同步目标规则添加关键字
+
+                # Add keywords to the sync target rule
                 sync_success = 0
                 sync_duplicate = 0
                 for keyword in keywords:
                     try:
-                        # 检查同步规则是否已有此关键字
+                        # Check whether the sync rule already has this keyword
                         existing_keyword = session.query(Keyword).filter(
                             Keyword.rule_id == sync_rule_id,
                             Keyword.keyword == keyword,
                             Keyword.is_blacklist == is_blacklist
                         ).first()
-                        
+
                         if existing_keyword:
                             sync_duplicate += 1
                             continue
-                            
-                        # 添加新关键字到同步规则
+
+                        # Add new keyword to sync rule
                         new_keyword = Keyword(
                             rule_id=sync_rule_id,
                             keyword=keyword,
@@ -319,23 +319,23 @@ class DBOperations:
                         session.flush()
                         sync_success += 1
                     except Exception as e:
-                        logger.error(f"同步关键字到规则 {sync_rule_id} 时出错: {str(e)}")
+                        logger.error(f"Error syncing keyword to rule {sync_rule_id}: {str(e)}")
                         continue
-                
-                logger.info(f"同步规则 {sync_rule_id} 的结果: 成功={sync_success}, 重复={sync_duplicate}")
+
+                logger.info(f"Sync result for rule {sync_rule_id}: success={sync_success}, duplicates={sync_duplicate}")
 
         await self.sync_to_server(session, rule_id)
         return success_count, duplicate_count
 
     async def get_keywords(self, session, rule_id, add_mode):
-        """获取规则的所有关键字
-        
+        """Retrieve all keywords for a rule
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            
+            session: Database session
+            rule_id: Rule ID
+
         Returns:
-            list: 关键字列表
+            list: List of keywords
         """
         return session.query(Keyword).filter(
             Keyword.rule_id == rule_id,
@@ -343,31 +343,31 @@ class DBOperations:
         ).all()
 
     async def delete_keywords(self, session, rule_id, indices):
-        """删除指定索引的关键字
-        
+        """Delete keywords at the specified indices
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            indices: 要删除的索引列表（1-based）
-            
+            session: Database session
+            rule_id: Rule ID
+            indices: List of indices to delete (1-based)
+
         Returns:
-            tuple: (删除数量, 剩余关键字列表)
+            tuple: (deleted count, remaining keyword list)
         """
-        # 获取当前规则
+        # Fetch the target rule
         rule = session.query(ForwardRule).get(rule_id)
         if not rule:
-            logger.error(f"规则ID {rule_id} 不存在")
+            logger.error(f"Rule ID {rule_id} does not exist")
             return 0, []
-            
-        # 获取当前规则的关键字
+
+        # Fetch current keywords for this rule
         keywords = await self.get_keywords(session, rule_id, 'blacklist' if rule.add_mode == AddMode.BLACKLIST else 'whitelist')
         if not keywords:
             return 0, []
-            
+
         deleted_count = 0
         max_id = len(keywords)
-        
-        # 保存要删除的关键字信息，用于后续同步
+
+        # Save info about keywords to delete for later sync
         keywords_to_delete = []
         for idx in indices:
             if 1 <= idx <= max_id:
@@ -379,88 +379,88 @@ class DBOperations:
                 })
                 session.delete(keyword)
                 deleted_count += 1
-        
-        # 检查是否启用了同步功能
+
+        # Check whether sync is enabled for this rule
         if rule.enable_sync and keywords_to_delete:
-            logger.info(f"规则 {rule_id} 启用了同步功能，正在同步删除关联规则的关键字")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule_id} has sync enabled, syncing keyword deletions to linked rules")
+            # Get the list of rules to sync to
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule_id).all()
-            
-            # 为每个同步规则删除相同的关键字
+
+            # Delete the same keywords from each sync target rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步删除规则 {sync_rule_id} 的关键字")
-                
-                # 获取同步目标规则
+                logger.info(f"Syncing keyword deletions to rule {sync_rule_id}")
+
+                # Fetch the sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} does not exist, skipping")
                     continue
-                
-                # 在同步目标规则中删除相同的关键字
+
+                # Delete matching keywords from the sync target rule
                 sync_deleted = 0
                 for kw_info in keywords_to_delete:
                     try:
-                        # 查找目标规则中匹配的关键字
+                        # Find matching keywords in the target rule
                         target_keywords = session.query(Keyword).filter(
                             Keyword.rule_id == sync_rule_id,
                             Keyword.keyword == kw_info['keyword'],
                             Keyword.is_regex == kw_info['is_regex'],
                             Keyword.is_blacklist == kw_info['is_blacklist']
                         ).all()
-                        
-                        # 删除匹配的关键字
+
+                        # Delete matching keywords
                         for target_kw in target_keywords:
                             session.delete(target_kw)
                             sync_deleted += 1
                     except Exception as e:
-                        logger.error(f"同步删除规则 {sync_rule_id} 的关键字时出错: {str(e)}")
+                        logger.error(f"Error syncing keyword deletion for rule {sync_rule_id}: {str(e)}")
                         continue
-                
-                logger.info(f"同步删除规则 {sync_rule_id} 的关键字: 删除了 {sync_deleted} 个")
+
+                logger.info(f"Synced keyword deletions for rule {sync_rule_id}: deleted {sync_deleted}")
 
         await self.sync_to_server(session, rule_id)
         return deleted_count, await self.get_keywords(session, rule_id, 'blacklist' if rule.add_mode == AddMode.BLACKLIST else 'whitelist')
 
     async def add_replace_rules(self, session, rule_id, patterns, contents=None):
-        """添加替换规则
-        
+        """Add replacement rules
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            patterns: 匹配模式列表
-            contents: 替换内容列表（可选）
-            
+            session: Database session
+            rule_id: Rule ID
+            patterns: List of match patterns
+            contents: List of replacement content (optional)
+
         Returns:
-            tuple: (成功数量, 重复数量)
+            tuple: (success count, duplicate count)
         """
-        # 获取当前规则
+        # Fetch the target rule
         rule = session.query(ForwardRule).get(rule_id)
         if not rule:
-            logger.error(f"规则ID {rule_id} 不存在")
+            logger.error(f"Rule ID {rule_id} does not exist")
             return 0, 0
-            
+
         success_count = 0
         duplicate_count = 0
-        
+
         if contents is None:
             contents = [''] * len(patterns)
-        
-        # 添加替换规则到主规则
-        added_rules = []  # 存储成功添加的规则，用于后续同步
+
+        # Add replacement rules to the main rule
+        added_rules = []  # Track successfully added rules for later sync
         for pattern, content in zip(patterns, contents):
             try:
-                # 检查是否已存在相同的替换规则
+                # Check for an existing identical replacement rule
                 existing_rule = session.query(ReplaceRule).filter(
                     ReplaceRule.rule_id == rule_id,
                     ReplaceRule.pattern == pattern,
                     ReplaceRule.content == content
                 ).first()
-                
+
                 if existing_rule:
                     duplicate_count += 1
                     continue
-                    
+
                 new_rule = ReplaceRule(
                     rule_id=rule_id,
                     pattern=pattern,
@@ -474,41 +474,41 @@ class DBOperations:
                 session.rollback()
                 duplicate_count += 1
                 continue
-        
-        # 检查是否启用了同步功能
+
+        # Check whether sync is enabled for this rule
         if rule.enable_sync and added_rules:
-            logger.info(f"规则 {rule_id} 启用了同步功能，正在同步添加替换规则到关联规则")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule_id} has sync enabled, syncing replacement rules to linked rules")
+            # Get the list of rules to sync to
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule_id).all()
-            
-            # 为每个同步规则添加相同的替换规则
+
+            # Add the same replacement rules to each sync target rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步添加替换规则到规则 {sync_rule_id}")
-                
-                # 获取同步目标规则
+                logger.info(f"Syncing replacement rules to rule {sync_rule_id}")
+
+                # Fetch the sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} does not exist, skipping")
                     continue
-                
-                # 为同步目标规则添加替换规则
+
+                # Add replacement rules to the sync target rule
                 sync_success = 0
                 sync_duplicate = 0
                 for rule_info in added_rules:
                     try:
-                        # 检查同步规则是否已有此替换规则
+                        # Check whether the sync rule already has this replacement rule
                         existing_rule = session.query(ReplaceRule).filter(
                             ReplaceRule.rule_id == sync_rule_id,
                             ReplaceRule.pattern == rule_info['pattern'],
                             ReplaceRule.content == rule_info['content']
                         ).first()
-                        
+
                         if existing_rule:
                             sync_duplicate += 1
                             continue
-                            
-                        # 添加新替换规则到同步规则
+
+                        # Add new replacement rule to sync rule
                         new_rule = ReplaceRule(
                             rule_id=sync_rule_id,
                             pattern=rule_info['pattern'],
@@ -518,52 +518,52 @@ class DBOperations:
                         session.flush()
                         sync_success += 1
                     except Exception as e:
-                        logger.error(f"同步添加替换规则到规则 {sync_rule_id} 时出错: {str(e)}")
+                        logger.error(f"Error syncing replacement rule to rule {sync_rule_id}: {str(e)}")
                         continue
-                
-                logger.info(f"同步规则 {sync_rule_id} 的替换规则添加结果: 成功={sync_success}, 重复={sync_duplicate}")
-        
+
+                logger.info(f"Replacement rule sync result for rule {sync_rule_id}: success={sync_success}, duplicates={sync_duplicate}")
+
         return success_count, duplicate_count
 
     async def get_replace_rules(self, session, rule_id):
-        """获取规则的所有替换规则
-        
+        """Retrieve all replacement rules for a rule
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            
+            session: Database session
+            rule_id: Rule ID
+
         Returns:
-            list: 替换规则列表
+            list: List of replacement rules
         """
         return session.query(ReplaceRule).filter(
             ReplaceRule.rule_id == rule_id
         ).all()
 
     async def delete_replace_rules(self, session, rule_id, indices):
-        """删除指定索引的替换规则
-        
+        """Delete replacement rules at the specified indices
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            indices: 要删除的索引列表（1-based）
-            
+            session: Database session
+            rule_id: Rule ID
+            indices: List of indices to delete (1-based)
+
         Returns:
-            tuple: (删除数量, 剩余替换规则列表)
+            tuple: (deleted count, remaining replacement rule list)
         """
-        # 获取当前规则
+        # Fetch the target rule
         rule = session.query(ForwardRule).get(rule_id)
         if not rule:
-            logger.error(f"规则ID {rule_id} 不存在")
+            logger.error(f"Rule ID {rule_id} does not exist")
             return 0, []
-            
+
         rules = await self.get_replace_rules(session, rule_id)
         if not rules:
             return 0, []
-            
+
         deleted_count = 0
         max_id = len(rules)
-        
-        # 保存要删除的替换规则信息，用于后续同步
+
+        # Save info about rules to delete for later sync
         rules_to_delete = []
         for idx in indices:
             if 1 <= idx <= max_id:
@@ -574,57 +574,57 @@ class DBOperations:
                 })
                 session.delete(replace_rule)
                 deleted_count += 1
-        
-        # 检查是否启用了同步功能
+
+        # Check whether sync is enabled for this rule
         if rule.enable_sync and rules_to_delete:
-            logger.info(f"规则 {rule_id} 启用了同步功能，正在同步删除关联规则的替换规则")
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule_id} has sync enabled, syncing replacement rule deletions to linked rules")
+            # Get the list of rules to sync to
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule_id).all()
-            
-            # 为每个同步规则删除相同的替换规则
+
+            # Delete the same replacement rules from each sync target rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步删除规则 {sync_rule_id} 的替换规则")
-                
-                # 获取同步目标规则
+                logger.info(f"Syncing replacement rule deletions to rule {sync_rule_id}")
+
+                # Fetch the sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} does not exist, skipping")
                     continue
-                
-                # 在同步目标规则中删除相同的替换规则
+
+                # Delete matching replacement rules from the sync target rule
                 sync_deleted = 0
                 for rule_info in rules_to_delete:
                     try:
-                        # 查找目标规则中匹配的替换规则
+                        # Find matching replacement rules in the target rule
                         target_rules = session.query(ReplaceRule).filter(
                             ReplaceRule.rule_id == sync_rule_id,
                             ReplaceRule.pattern == rule_info['pattern'],
                             ReplaceRule.content == rule_info['content']
                         ).all()
-                        
-                        # 删除匹配的替换规则
+
+                        # Delete matching replacement rules
                         for target_rule in target_rules:
                             session.delete(target_rule)
                             sync_deleted += 1
                     except Exception as e:
-                        logger.error(f"同步删除规则 {sync_rule_id} 的替换规则时出错: {str(e)}")
+                        logger.error(f"Error syncing replacement rule deletion for rule {sync_rule_id}: {str(e)}")
                         continue
-                
-                logger.info(f"同步删除规则 {sync_rule_id} 的替换规则: 删除了 {sync_deleted} 个")
-                
+
+                logger.info(f"Synced replacement rule deletions for rule {sync_rule_id}: deleted {sync_deleted}")
+
         return deleted_count, await self.get_replace_rules(session, rule_id)
 
     async def get_media_types(self, session, rule_id):
-        """获取媒体类型设置"""
+        """Retrieve media type settings"""
         try:
             rule = session.query(ForwardRule).get(rule_id)
             if not rule:
-                return False, "规则不存在", None
-            
+                return False, "Rule does not exist", None
+
             media_types = session.query(MediaTypes).filter_by(rule_id=rule_id).first()
             if not media_types:
-                # 如果不存在则创建默认设置
+                # Create default settings if none exist
                 media_types = MediaTypes(
                     rule_id=rule_id,
                     photo=False,
@@ -635,181 +635,181 @@ class DBOperations:
                 )
                 session.add(media_types)
                 session.commit()
-            
-            return True, "获取媒体类型设置成功", media_types
+
+            return True, "Media type settings retrieved successfully", media_types
         except Exception as e:
-            logger.error(f"获取媒体类型设置时出错: {str(e)}")
+            logger.error(f"Error retrieving media type settings: {str(e)}")
             session.rollback()
-            return False, f"获取媒体类型设置时出错: {str(e)}", None
+            return False, f"Error retrieving media type settings: {str(e)}", None
 
     async def update_media_types(self, session, rule_id, media_types_dict):
-        """更新媒体类型设置"""
+        """Update media type settings"""
         try:
             rule = session.query(ForwardRule).get(rule_id)
             if not rule:
-                return False, "规则不存在"
-            
+                return False, "Rule does not exist"
+
             media_types = session.query(MediaTypes).filter_by(rule_id=rule_id).first()
             if not media_types:
                 media_types = MediaTypes(rule_id=rule_id)
                 session.add(media_types)
-            
-            # 更新媒体类型设置
+
+            # Update media type settings
             for field in ['photo', 'document', 'video', 'audio', 'voice']:
                 if field in media_types_dict:
                     setattr(media_types, field, media_types_dict[field])
-            
+
             session.commit()
-            return True, "更新媒体类型设置成功"
+            return True, "Media type settings updated successfully"
         except Exception as e:
-            logger.error(f"更新媒体类型设置时出错: {str(e)}")
+            logger.error(f"Error updating media type settings: {str(e)}")
             session.rollback()
-            return False, f"更新媒体类型设置时出错: {str(e)}"
+            return False, f"Error updating media type settings: {str(e)}"
 
     async def toggle_media_type(self, session, rule_id, media_type):
-        """切换特定媒体类型的启用状态"""
+        """Toggle the enabled state of a specific media type"""
         try:
             if media_type not in ['photo', 'document', 'video', 'audio', 'voice']:
-                return False, f"无效的媒体类型: {media_type}"
-                
+                return False, f"Invalid media type: {media_type}"
+
             success, msg, media_types = await self.get_media_types(session, rule_id)
             if not success:
                 return False, msg
-            
-            # 切换状态
+
+            # Toggle state
             current_value = getattr(media_types, media_type)
             setattr(media_types, media_type, not current_value)
-            
+
             session.commit()
-            return True, f"媒体类型 {media_type} 切换为 {not current_value}"
+            return True, f"Media type {media_type} toggled to {not current_value}"
         except Exception as e:
-            logger.error(f"切换媒体类型时出错: {str(e)}")
+            logger.error(f"Error toggling media type: {str(e)}")
             session.rollback()
-            return False, f"切换媒体类型时出错: {str(e)}"
+            return False, f"Error toggling media type: {str(e)}"
 
     async def add_media_extensions(self, session, rule_id, extensions):
-        """添加媒体扩展名
-        
+        """Add media file extensions
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            extensions: 扩展名列表，比如 ['jpg', 'png', 'pdf']
-        
+            session: Database session
+            rule_id: Rule ID
+            extensions: List of extensions, e.g. ['jpg', 'png', 'pdf']
+
         Returns:
-            (bool, str): 成功状态和消息
+            (bool, str): Success status and message
         """
         try:
             added_count = 0
             for ext in extensions:
-                # 确保扩展名不带点，去除可能存在的点
+                # Ensure extension has no leading dot
                 ext = ext.lstrip('.')
-                
-                # 检查是否已存在相同的扩展名
+
+                # Check whether the same extension already exists
                 existing = session.execute(
                     text("SELECT id FROM media_extensions WHERE rule_id = :rule_id AND extension = :extension"),
                     {"rule_id": rule_id, "extension": ext}
                 )
-                
+
                 if existing.first() is None:
-                    # 添加新的扩展名
+                    # Add new extension
                     new_extension = MediaExtensions(rule_id=rule_id, extension=ext)
                     session.add(new_extension)
                     added_count += 1
-            
+
             if added_count > 0:
                 session.commit()
-                return True, f"成功添加 {added_count} 个媒体扩展名"
+                return True, f"Successfully added {added_count} media extension(s)"
             else:
-                return False, "所有扩展名已存在，未添加任何新扩展名"
-        
+                return False, "All extensions already exist, no new extensions added"
+
         except Exception as e:
             session.rollback()
-            logger.error(f"添加媒体扩展名失败: {str(e)}")
-            return False, f"添加媒体扩展名失败: {str(e)}"
+            logger.error(f"Failed to add media extensions: {str(e)}")
+            return False, f"Failed to add media extensions: {str(e)}"
 
     async def get_media_extensions(self, session, rule_id):
-        """获取规则的媒体扩展名列表
-        
+        """Retrieve the media extension list for a rule
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-        
+            session: Database session
+            rule_id: Rule ID
+
         Returns:
-            list: 媒体扩展名对象列表
+            list: List of media extension objects
         """
         try:
-            # 使用SQLAlchemy文本SQL查询，不需要await
+            # Use SQLAlchemy text SQL query (no await needed)
             result = session.execute(
                 text("SELECT id, extension FROM media_extensions WHERE rule_id = :rule_id ORDER BY id"),
                 {"rule_id": rule_id}
             )
-            
-            # 构建返回结果
+
+            # Build return result
             extensions = []
             for row in result:
                 extensions.append({
                     "id": row[0],
                     "extension": row[1]
                 })
-            
-            # 返回扩展名列表
+
+            # Return extension list
             return extensions
-        
+
         except Exception as e:
-            # 记录错误并返回空列表
-            logger.error(f"获取媒体扩展名失败: {str(e)}")
+            # Log error and return empty list
+            logger.error(f"Failed to retrieve media extensions: {str(e)}")
             return []
 
     async def delete_media_extensions(self, session, rule_id, indices):
-        """删除媒体扩展名
-        
+        """Delete media file extensions
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            indices: 要删除的扩展名ID列表
-        
+            session: Database session
+            rule_id: Rule ID
+            indices: List of extension IDs to delete
+
         Returns:
-            (bool, str): 成功状态和消息
+            (bool, str): Success status and message
         """
         try:
             if not indices:
-                return False, "未指定要删除的扩展名"
-            
+                return False, "No extensions specified for deletion"
+
             for index in indices:
-                # 查找并删除扩展名
+                # Find and delete the extension
                 result = session.execute(
                     text("SELECT id FROM media_extensions WHERE id = :id AND rule_id = :rule_id"),
                     {"id": index, "rule_id": rule_id}
                 )
-                
+
                 extension = result.first()
                 if extension:
                     session.execute(
                         text("DELETE FROM media_extensions WHERE id = :id"),
                         {"id": extension[0]}
                     )
-            
+
             session.commit()
-            return True, f"成功删除 {len(indices)} 个媒体扩展名"
+            return True, f"Successfully deleted {len(indices)} media extension(s)"
         except Exception as e:
             session.rollback()
-            logger.error(f"删除媒体扩展名失败: {str(e)}")
-            return False, f"删除媒体扩展名失败: {str(e)}"
+            logger.error(f"Failed to delete media extensions: {str(e)}")
+            return False, f"Failed to delete media extensions: {str(e)}"
 
-    # RSS配置相关操作
+    # RSS configuration operations
     async def get_rss_config(self, session, rule_id):
-        """获取指定规则的RSS配置"""
+        """Retrieve the RSS configuration for the specified rule"""
         return session.query(RSSConfig).filter(RSSConfig.rule_id == rule_id).first()
 
     async def create_rss_config(self, session, rule_id, **kwargs):
-        """创建RSS配置"""
+        """Create an RSS configuration"""
         rss_config = RSSConfig(rule_id=rule_id, **kwargs)
         session.add(rss_config)
         session.commit()
         return rss_config
 
     async def update_rss_config(self, session, rule_id, **kwargs):
-        """更新RSS配置"""
+        """Update an RSS configuration"""
         rss_config = await self.get_rss_config(session, rule_id)
         if rss_config:
             for key, value in kwargs.items():
@@ -818,7 +818,7 @@ class DBOperations:
         return rss_config
 
     async def delete_rss_config(self, session, rule_id):
-        """删除RSS配置"""
+        """Delete an RSS configuration"""
         rss_config = await self.get_rss_config(session, rule_id)
         if rss_config:
             session.delete(rss_config)
@@ -826,18 +826,18 @@ class DBOperations:
             return True
         return False
 
-    # RSS模式相关操作
+    # RSS pattern operations
     async def get_rss_patterns(self, session, rss_config_id):
-        """获取指定RSS配置的所有模式"""
+        """Retrieve all patterns for the specified RSS configuration"""
         return session.query(RSSPattern).filter(RSSPattern.rss_config_id == rss_config_id).order_by(RSSPattern.priority).all()
 
     async def get_rss_pattern(self, session, pattern_id):
-        """获取指定的RSS模式"""
+        """Retrieve a specific RSS pattern"""
         return session.query(RSSPattern).filter(RSSPattern.id == pattern_id).first()
 
     async def create_rss_pattern(self, session, rss_config_id, pattern, pattern_type, priority=0):
-        """创建RSS模式"""
-        logger.info(f"创建RSS模式：config_id={rss_config_id}, pattern={pattern}, type={pattern_type}, priority={priority}")
+        """Create an RSS pattern"""
+        logger.info(f"Creating RSS pattern: config_id={rss_config_id}, pattern={pattern}, type={pattern_type}, priority={priority}")
         try:
             pattern_obj = RSSPattern(
                 rss_config_id=rss_config_id,
@@ -847,35 +847,35 @@ class DBOperations:
             )
             session.add(pattern_obj)
             session.commit()
-            logger.info(f"RSS模式创建成功：{pattern_obj.id}")
+            logger.info(f"RSS pattern created successfully: {pattern_obj.id}")
             return pattern_obj
         except Exception as e:
-            logger.error(f"创建RSS模式失败：{str(e)}")
+            logger.error(f"Failed to create RSS pattern: {str(e)}")
             session.rollback()
             raise
 
     async def update_rss_pattern(self, session, pattern_id, **kwargs):
-        """更新RSS模式"""
-        logger.info(f"更新RSS模式：pattern_id={pattern_id}, kwargs={kwargs}")
+        """Update an RSS pattern"""
+        logger.info(f"Updating RSS pattern: pattern_id={pattern_id}, kwargs={kwargs}")
         try:
             pattern = session.query(RSSPattern).filter(RSSPattern.id == pattern_id).first()
             if not pattern:
-                logger.error(f"RSS模式不存在：pattern_id={pattern_id}")
-                raise ValueError("RSS模式不存在")
-            
+                logger.error(f"RSS pattern does not exist: pattern_id={pattern_id}")
+                raise ValueError("RSS pattern does not exist")
+
             for key, value in kwargs.items():
                 setattr(pattern, key, value)
-            
+
             session.commit()
-            logger.info(f"RSS模式更新成功：{pattern.id}")
+            logger.info(f"RSS pattern updated successfully: {pattern.id}")
             return pattern
         except Exception as e:
-            logger.error(f"更新RSS模式失败：{str(e)}")
+            logger.error(f"Failed to update RSS pattern: {str(e)}")
             session.rollback()
             raise
 
     async def delete_rss_pattern(self, session, pattern_id):
-        """删除RSS模式"""
+        """Delete an RSS pattern"""
         rss_pattern = await self.get_rss_pattern(session, pattern_id)
         if rss_pattern:
             session.delete(rss_pattern)
@@ -884,27 +884,27 @@ class DBOperations:
         return False
 
     async def reorder_rss_patterns(self, session, rss_config_id, pattern_ids):
-        """重新排序RSS模式"""
+        """Reorder RSS patterns"""
         patterns = await self.get_rss_patterns(session, rss_config_id)
         pattern_dict = {p.id: p for p in patterns}
-        
+
         for index, pattern_id in enumerate(pattern_ids):
             if pattern_id in pattern_dict:
                 pattern_dict[pattern_id].priority = index
-        
+
         session.commit()
 
-    # 用户相关操作
+    # User operations
     async def get_user(self, session, username):
-        """通过用户名获取用户"""
+        """Retrieve a user by username"""
         return session.query(User).filter(User.username == username).first()
 
     async def get_user_by_id(self, session, user_id):
-        """通过ID获取用户"""
+        """Retrieve a user by ID"""
         return session.query(User).filter(User.id == user_id).first()
 
     async def create_user(self, session, username, password):
-        """创建用户"""
+        """Create a user"""
 
         user = User(
             username=username,
@@ -915,7 +915,7 @@ class DBOperations:
         return user
 
     async def update_user_password(self, session, username, new_password):
-        """更新用户密码"""
+        """Update a user's password"""
 
         user = await self.get_user(session, username)
         if user:
@@ -924,259 +924,259 @@ class DBOperations:
         return user
 
     async def verify_user(self, session, username, password):
-        """验证用户密码"""
-        
+        """Verify a user's password"""
+
         user = await self.get_user(session, username)
         if user and check_password_hash(user.password, password):
             return user
         return None
 
-    # 批量操作
+    # Bulk operations
     async def get_all_enabled_rss_configs(self, session):
-        """获取所有启用的RSS配置"""
+        """Retrieve all enabled RSS configurations"""
         return session.query(RSSConfig).filter(RSSConfig.enable_rss == True).all()
 
     async def get_rss_config_with_patterns(self, session, rule_id):
-        """获取RSS配置及其所有模式"""
+        """Retrieve an RSS configuration along with all its patterns"""
         return session.query(RSSConfig).options(
             joinedload(RSSConfig.patterns)
-        ).filter(RSSConfig.rule_id == rule_id).first() 
+        ).filter(RSSConfig.rule_id == rule_id).first()
 
-    # 规则同步相关操作
+    # Rule sync operations
     async def add_rule_sync(self, session, rule_id, sync_rule_id):
-        """添加规则同步关系
-        
+        """Add a rule sync relationship
+
         Args:
-            session: 数据库会话
-            rule_id: 源规则ID
-            sync_rule_id: 目标规则ID（要同步到的规则）
-        
+            session: Database session
+            rule_id: Source rule ID
+            sync_rule_id: Target rule ID (the rule to sync to)
+
         Returns:
-            tuple: (bool, str) - (成功状态, 消息)
+            tuple: (bool, str) - (success status, message)
         """
         try:
-            # 检查源规则是否存在
+            # Check whether the source rule exists
             source_rule = session.query(ForwardRule).get(rule_id)
             if not source_rule:
-                return False, f"源规则ID {rule_id} 不存在"
-            
-            # 检查目标规则是否存在
+                return False, f"Source rule ID {rule_id} does not exist"
+
+            # Check whether the target rule exists
             target_rule = session.query(ForwardRule).get(sync_rule_id)
             if not target_rule:
-                return False, f"目标规则ID {sync_rule_id} 不存在"
-            
-            # 检查是否已存在相同的同步关系
+                return False, f"Target rule ID {sync_rule_id} does not exist"
+
+            # Check whether the same sync relationship already exists
             existing_sync = session.query(RuleSync).filter(
                 RuleSync.rule_id == rule_id,
                 RuleSync.sync_rule_id == sync_rule_id
             ).first()
-            
+
             if existing_sync:
-                return False, f"同步关系已存在"
-            
-            # 创建新的同步关系
+                return False, f"Sync relationship already exists"
+
+            # Create new sync relationship
             new_sync = RuleSync(
                 rule_id=rule_id,
                 sync_rule_id=sync_rule_id
             )
-            
-            # 启用规则的同步功能
+
+            # Enable sync for the source rule
             source_rule.enable_sync = True
-            
+
             session.add(new_sync)
             session.commit()
-            
-            logger.info(f"已添加规则同步: 从规则 {rule_id} 到规则 {sync_rule_id}")
-            return True, f"成功添加同步关系"
-        
+
+            logger.info(f"Added rule sync: from rule {rule_id} to rule {sync_rule_id}")
+            return True, f"Sync relationship added successfully"
+
         except Exception as e:
             session.rollback()
-            logger.error(f"添加规则同步关系时出错: {str(e)}")
-            return False, f"添加同步关系失败: {str(e)}"
-    
+            logger.error(f"Error adding rule sync relationship: {str(e)}")
+            return False, f"Failed to add sync relationship: {str(e)}"
+
     async def get_rule_syncs(self, session, rule_id):
-        """获取指定规则的同步关系列表
-        
+        """Retrieve the list of sync relationships for a rule
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-        
+            session: Database session
+            rule_id: Rule ID
+
         Returns:
-            list: 同步关系列表
+            list: List of sync relationships
         """
         try:
-            # 获取该规则的所有同步目标
+            # Get all sync targets for this rule
             syncs = session.query(RuleSync).filter(
                 RuleSync.rule_id == rule_id
             ).all()
-            
+
             return syncs
-        
+
         except Exception as e:
-            logger.error(f"获取规则同步关系时出错: {str(e)}")
+            logger.error(f"Error retrieving rule sync relationships: {str(e)}")
             return []
-    
+
     async def delete_rule_sync(self, session, rule_id, sync_rule_id):
-        """删除规则同步关系
-        
+        """Delete a rule sync relationship
+
         Args:
-            session: 数据库会话
-            rule_id: 源规则ID
-            sync_rule_id: 目标规则ID
-        
+            session: Database session
+            rule_id: Source rule ID
+            sync_rule_id: Target rule ID
+
         Returns:
-            tuple: (bool, str) - (成功状态, 消息)
+            tuple: (bool, str) - (success status, message)
         """
         try:
-            # 查找同步关系
+            # Find the sync relationship
             sync = session.query(RuleSync).filter(
                 RuleSync.rule_id == rule_id,
                 RuleSync.sync_rule_id == sync_rule_id
             ).first()
-            
+
             if not sync:
-                return False, "指定的同步关系不存在"
-            
-            # 删除同步关系
+                return False, "Specified sync relationship does not exist"
+
+            # Delete the sync relationship
             session.delete(sync)
-            
-            # 检查规则是否还有其他同步关系
+
+            # Check whether the rule has any other sync relationships
             remaining_syncs = session.query(RuleSync).filter(
                 RuleSync.rule_id == rule_id
             ).count()
-            
-            # 如果没有其他同步关系，关闭规则的同步功能
+
+            # If no other sync relationships remain, disable sync for this rule
             if remaining_syncs == 0:
                 rule = session.query(ForwardRule).get(rule_id)
                 if rule:
                     rule.enable_sync = False
-            
+
             session.commit()
-            
-            logger.info(f"已删除规则同步: 从规则 {rule_id} 到规则 {sync_rule_id}")
-            return True, "成功删除同步关系"
-        
+
+            logger.info(f"Deleted rule sync: from rule {rule_id} to rule {sync_rule_id}")
+            return True, "Sync relationship deleted successfully"
+
         except Exception as e:
             session.rollback()
-            logger.error(f"删除规则同步关系时出错: {str(e)}")
-            return False, f"删除同步关系失败: {str(e)}"
+            logger.error(f"Error deleting rule sync relationship: {str(e)}")
+            return False, f"Failed to delete sync relationship: {str(e)}"
 
     async def get_push_configs(self, session, rule_id):
-        """获取指定规则的所有推送配置
-        
+        """Retrieve all push configurations for the specified rule
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-        
+            session: Database session
+            rule_id: Rule ID
+
         Returns:
-            list: 推送配置列表
+            list: List of push configurations
         """
         try:
             return session.query(PushConfig).filter(
                 PushConfig.rule_id == rule_id
             ).all()
         except Exception as e:
-            logger.error(f"获取推送配置时出错: {str(e)}")
+            logger.error(f"Error retrieving push configurations: {str(e)}")
             return []
-    
+
     async def add_push_config(self, session, rule_id, push_channel, enable_push_channel=True):
-        """添加推送配置
-        
+        """Add a push configuration
+
         Args:
-            session: 数据库会话
-            rule_id: 规则ID
-            push_channel: 推送频道
-            enable_push_channel: 是否启用推送频道
-        
+            session: Database session
+            rule_id: Rule ID
+            push_channel: Push channel
+            enable_push_channel: Whether to enable the push channel
+
         Returns:
-            tuple: (bool, str, obj) - (成功状态, 消息, 创建的对象)
+            tuple: (bool, str, obj) - (success status, message, created object)
         """
         try:
-            # 检查规则是否存在
+            # Check whether the rule exists
             rule = session.query(ForwardRule).get(rule_id)
             if not rule:
-                return False, f"规则ID {rule_id} 不存在", None
-            
-            # 创建新的推送配置
+                return False, f"Rule ID {rule_id} does not exist", None
+
+            # Create new push configuration
             push_config = PushConfig(
                 rule_id=rule_id,
                 push_channel=push_channel,
                 enable_push_channel=enable_push_channel
             )
-            
+
             session.add(push_config)
             session.commit()
-            
-            # 启用规则的推送功能
+
+            # Enable push for the rule
             rule.enable_push = True
             session.commit()
-            
-            return True, "成功添加推送配置", push_config
+
+            return True, "Push configuration added successfully", push_config
         except Exception as e:
             session.rollback()
-            logger.error(f"添加推送配置时出错: {str(e)}")
-            return False, f"添加推送配置失败: {str(e)}", None
-    
+            logger.error(f"Error adding push configuration: {str(e)}")
+            return False, f"Failed to add push configuration: {str(e)}", None
+
     async def toggle_push_config(self, session, config_id):
-        """切换推送配置的启用状态
-        
+        """Toggle the enabled state of a push configuration
+
         Args:
-            session: 数据库会话
-            config_id: 配置ID
-        
+            session: Database session
+            config_id: Configuration ID
+
         Returns:
-            tuple: (bool, str) - (成功状态, 消息)
+            tuple: (bool, str) - (success status, message)
         """
         try:
             push_config = session.query(PushConfig).get(config_id)
             if not push_config:
-                return False, "推送配置不存在"
-            
-            # 切换启用状态
+                return False, "Push configuration does not exist"
+
+            # Toggle enabled state
             push_config.enable_push_channel = not push_config.enable_push_channel
             session.commit()
-            
-            return True, f"推送配置已{'启用' if push_config.enable_push_channel else '禁用'}"
+
+            return True, f"Push configuration {'enabled' if push_config.enable_push_channel else 'disabled'}"
         except Exception as e:
             session.rollback()
-            logger.error(f"切换推送配置状态时出错: {str(e)}")
-            return False, f"切换推送配置状态失败: {str(e)}"
-    
+            logger.error(f"Error toggling push configuration state: {str(e)}")
+            return False, f"Failed to toggle push configuration state: {str(e)}"
+
     async def delete_push_config(self, session, config_id):
-        """删除推送配置
-        
+        """Delete a push configuration
+
         Args:
-            session: 数据库会话
-            config_id: 配置ID
-        
+            session: Database session
+            config_id: Configuration ID
+
         Returns:
-            tuple: (bool, str) - (成功状态, 消息)
+            tuple: (bool, str) - (success status, message)
         """
         try:
             push_config = session.query(PushConfig).get(config_id)
             if not push_config:
-                return False, "推送配置不存在"
-            
+                return False, "Push configuration does not exist"
+
             rule_id = push_config.rule_id
-            
-            # 删除配置
+
+            # Delete the configuration
             session.delete(push_config)
-            
-            # 检查是否还有其他推送配置
+
+            # Check whether any other push configurations remain
             remaining_configs = session.query(PushConfig).filter(
                 PushConfig.rule_id == rule_id
             ).count()
-            
-            # 如果没有其他推送配置，关闭规则的推送功能
+
+            # If no other push configurations remain, disable push for the rule
             if remaining_configs == 0:
                 rule = session.query(ForwardRule).get(rule_id)
                 if rule:
                     rule.enable_push = False
-            
+
             session.commit()
-            
-            return True, "成功删除推送配置"
+
+            return True, "Push configuration deleted successfully"
         except Exception as e:
             session.rollback()
-            logger.error(f"删除推送配置时出错: {str(e)}")
-            return False, f"删除推送配置失败: {str(e)}"
+            logger.error(f"Error deleting push configuration: {str(e)}")
+            return False, f"Failed to delete push configuration: {str(e)}"

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 async def callback_media_settings(event, rule_id, session, message, data):
-    # 显示媒体设置页面
+    # Show media settings page
     try:
         rule = session.query(ForwardRule).get(int(rule_id))
         if rule:
@@ -25,72 +25,71 @@ async def callback_media_settings(event, rule_id, session, message, data):
 
 
 
-
 async def callback_set_max_media_size(event, rule_id, session, message, data):
-        await event.edit("请选择最大媒体大小(MB)：", buttons=await create_media_size_buttons(rule_id, page=0))
+        await event.edit("Select maximum media size (MB):", buttons=await create_media_size_buttons(rule_id, page=0))
         return
 
 
 
 async def callback_select_max_media_size(event, rule_id, session, message, data):
-        parts = data.split(':', 2)  # 最多分割2次
+        parts = data.split(':', 2)  # Split at most 2 times
         if len(parts) == 3:
             _, rule_id, size = parts
-            logger.info(f"设置规则 {rule_id} 的最大媒体大小为: {size}")
+            logger.info(f"Setting max media size for rule {rule_id} to: {size}")
             try:
                 rule = session.query(ForwardRule).get(int(rule_id))
                 if rule:
-                    # 记录旧大小
+                    # Record old size
                     old_size = rule.max_media_size
 
-                    # 更新最大媒体大小
+                    # Update max media size
                     rule.max_media_size = int(size)
                     session.commit()
-                    logger.info(f"数据库更新成功: {old_size} -> {size}")
-                    
-                    # 检查是否启用了同步功能
+                    logger.info(f"Database updated successfully: {old_size} -> {size}")
+
+                    # Check if sync is enabled
                     if rule.enable_sync:
-                        logger.info(f"规则 {rule.id} 启用了同步功能，正在同步媒体大小设置到关联规则")
-                        # 获取需要同步的规则列表
+                        logger.info(f"Rule {rule.id} has sync enabled, syncing media size to associated rules")
+                        # Get list of rules to sync
                         sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
-                        
-                        # 为每个同步规则应用相同的媒体大小设置
+
+                        # Apply same media size to each sync rule
                         for sync_rule in sync_rules:
                             sync_rule_id = sync_rule.sync_rule_id
-                            logger.info(f"正在同步媒体大小到规则 {sync_rule_id}")
-                            
-                            # 获取同步目标规则
+                            logger.info(f"Syncing media size to rule {sync_rule_id}")
+
+                            # Get sync target rule
                             target_rule = session.query(ForwardRule).get(sync_rule_id)
                             if not target_rule:
-                                logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                                logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                                 continue
-                            
-                            # 更新同步目标规则的媒体大小设置
-                            try:
-                                # 记录旧大小
-                                old_target_size = target_rule.max_media_size
-                                
-                                # 设置新大小
-                                target_rule.max_media_size = int(size)
-                                
-                                logger.info(f"同步规则 {sync_rule_id} 的媒体大小从 {old_target_size} 到 {size}")
-                            except Exception as e:
-                                logger.error(f"同步媒体大小到规则 {sync_rule_id} 时出错: {str(e)}")
-                                continue
-                        
-                        # 提交所有同步更改
-                        session.commit()
-                        logger.info("所有同步媒体大小更改已提交")
 
-                    # 获取消息对象
+                            # Update sync target rule's media size
+                            try:
+                                # Record old size
+                                old_target_size = target_rule.max_media_size
+
+                                # Set new size
+                                target_rule.max_media_size = int(size)
+
+                                logger.info(f"Synced rule {sync_rule_id} media size from {old_target_size} to {size}")
+                            except Exception as e:
+                                logger.error(f"Error syncing media size to rule {sync_rule_id}: {str(e)}")
+                                continue
+
+                        # Commit all sync changes
+                        session.commit()
+                        logger.info("All sync media size changes committed")
+
+                    # Get message object
                     message = await event.get_message()
 
-                    await event.edit("媒体设置：",buttons=await create_media_settings_buttons(rule))
-                    await event.answer(f"已设置最大媒体大小为: {size}MB")
-                    logger.info("界面更新完成")
+                    await event.edit("Media settings:", buttons=await create_media_settings_buttons(rule))
+                    await event.answer(f"Max media size set to: {size}MB")
+                    logger.info("UI update complete")
             except Exception as e:
-                logger.error(f"设置最大媒体大小时出错: {str(e)}")
-                logger.error(f"错误详情: {traceback.format_exc()}")
+                logger.error(f"Error setting max media size: {str(e)}")
+                logger.error(f"Error details: {traceback.format_exc()}")
             finally:
                 session.close()
         return
@@ -98,336 +97,334 @@ async def callback_select_max_media_size(event, rule_id, session, message, data)
 
 
 
-
-
 async def callback_set_media_types(event, rule_id, session, message, data):
-    """处理查看并设置媒体类型的回调"""
+    """Handle callback for viewing and setting media types"""
     try:
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer("规则不存在")
+            await event.answer("Rule not found")
             return
-            
-        # 获取或创建媒体类型设置
+
+        # Get or create media type settings
         db_ops = await get_db_ops()
         success, msg, media_types = await db_ops.get_media_types(session, rule.id)
-        
+
         if not success:
-            await event.answer(f"获取媒体类型设置失败: {msg}")
+            await event.answer(f"Failed to get media type settings: {msg}")
             return
-            
-        # 显示媒体类型选择界面
-        await event.edit("请选择要屏蔽的媒体类型", buttons=await create_media_types_buttons(rule.id, media_types))
-        
+
+        # Show media type selection interface
+        await event.edit("Select media types to block", buttons=await create_media_types_buttons(rule.id, media_types))
+
     except Exception as e:
-        logger.error(f"设置媒体类型时出错: {str(e)}")
-        logger.error(f"错误详情: {traceback.format_exc()}")
-        await event.answer(f"设置媒体类型时出错: {str(e)}")
+        logger.error(f"Error setting media types: {str(e)}")
+        logger.error(f"Error details: {traceback.format_exc()}")
+        await event.answer(f"Error setting media types: {str(e)}")
     finally:
         session.close()
     return
-    
+
 async def callback_toggle_media_type(event, rule_id, session, message, data):
-    """处理切换媒体类型的回调"""
+    """Handle callback for toggling media type"""
     try:
-        # 正确解析数据获取rule_id和媒体类型
+        # Correctly parse data to get rule_id and media type
         parts = data.split(':')
         if len(parts) < 3:
-            await event.answer("数据格式错误")
+            await event.answer("Invalid data format")
             return
-            
+
         # toggle_media_type:31:voice
-        action = parts[0]  
-        rule_id = parts[1]  
-        media_type = parts[2]  
-        # 检查媒体类型是否有效
+        action = parts[0]
+        rule_id = parts[1]
+        media_type = parts[2]
+        # Check if media type is valid
         if media_type not in ['photo', 'document', 'video', 'audio', 'voice']:
-            await event.answer(f"无效的媒体类型: {media_type}")
+            await event.answer(f"Invalid media type: {media_type}")
             return
-            
-        # 获取规则
+
+        # Get rule
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer("规则不存在")
+            await event.answer("Rule not found")
             return
-            
-        # 切换媒体类型状态
+
+        # Toggle media type status
         db_ops = await get_db_ops()
         success, msg = await db_ops.toggle_media_type(session, rule.id, media_type)
-        
+
         if not success:
-            await event.answer(f"切换媒体类型失败: {msg}")
+            await event.answer(f"Failed to toggle media type: {msg}")
             return
-            
-        # 检查是否启用了同步功能
+
+        # Check if sync is enabled
         if rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步媒体类型设置到关联规则")
-            
-            # 获取该规则的当前媒体类型状态
+            logger.info(f"Rule {rule.id} has sync enabled, syncing media type settings to associated rules")
+
+            # Get current media type status for this rule
             success, _, current_media_types = await db_ops.get_media_types(session, rule.id)
             if not success:
-                logger.warning(f"获取媒体类型设置失败，无法同步")
+                logger.warning(f"Failed to get media type settings, cannot sync")
             else:
-                # 获取需要同步的规则列表
+                # Get list of rules to sync
                 sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
-                
-                # 为每个同步规则应用相同的媒体类型设置
+
+                # Apply same media type settings to each sync rule
                 for sync_rule in sync_rules:
                     sync_rule_id = sync_rule.sync_rule_id
-                    logger.info(f"正在同步媒体类型 {media_type} 到规则 {sync_rule_id}")
-                    
-                    # 获取同步目标规则
+                    logger.info(f"Syncing media type {media_type} to rule {sync_rule_id}")
+
+                    # Get sync target rule
                     target_rule = session.query(ForwardRule).get(sync_rule_id)
                     if not target_rule:
-                        logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                        logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                         continue
-                    
-                    # 更新同步目标规则的媒体类型设置
+
+                    # Update sync target rule's media type settings
                     try:
-                        # 获取目标规则当前媒体类型设置
+                        # Get target rule's current media type settings
                         target_success, _, target_media_types = await db_ops.get_media_types(session, sync_rule_id)
                         if not target_success:
-                            logger.warning(f"获取目标规则 {sync_rule_id} 的媒体类型设置失败，跳过")
+                            logger.warning(f"Failed to get media types for target rule {sync_rule_id}, skipping")
                             continue
-                        
-                        # 获取当前类型的新状态
+
+                        # Get the new status for the current type
                         current_type_status = getattr(current_media_types, media_type)
-                        
-                        # 如果目标媒体类型状态与主规则不同，则进行更新
+
+                        # If target media type status differs from main rule, update it
                         if getattr(target_media_types, media_type) != current_type_status:
-                            # 强制设置为与主规则相同的状态
+                            # Force set to same status as main rule
                             if current_type_status:
-                                # 当前主规则是开启状态，确保目标规则也开启
+                                # Main rule is enabled, ensure target rule is also enabled
                                 if not getattr(target_media_types, media_type):
                                     await db_ops.toggle_media_type(session, sync_rule_id, media_type)
-                                    logger.info(f"同步规则 {sync_rule_id} 的媒体类型 {media_type} 已开启")
+                                    logger.info(f"Synced rule {sync_rule_id} media type {media_type} enabled")
                             else:
-                                # 当前主规则是关闭状态，确保目标规则也关闭
+                                # Main rule is disabled, ensure target rule is also disabled
                                 if getattr(target_media_types, media_type):
                                     await db_ops.toggle_media_type(session, sync_rule_id, media_type)
-                                    logger.info(f"同步规则 {sync_rule_id} 的媒体类型 {media_type} 已关闭")
+                                    logger.info(f"Synced rule {sync_rule_id} media type {media_type} disabled")
                         else:
-                            logger.info(f"目标规则 {sync_rule_id} 的媒体类型 {media_type} 状态已经是 {current_type_status}，无需更改")
-                    
+                            logger.info(f"Target rule {sync_rule_id} media type {media_type} already has status {current_type_status}, no change needed")
+
                     except Exception as e:
-                        logger.error(f"同步媒体类型到规则 {sync_rule_id} 时出错: {str(e)}")
+                        logger.error(f"Error syncing media type to rule {sync_rule_id}: {str(e)}")
                         continue
-        
-        # 重新获取媒体类型设置
+
+        # Re-fetch media type settings
         success, _, media_types = await db_ops.get_media_types(session, rule.id)
-        
+
         if not success:
-            await event.answer("获取媒体类型设置失败")
+            await event.answer("Failed to get media type settings")
             return
-            
-        # 更新界面
-        await event.edit("请选择要屏蔽的媒体类型", buttons=await create_media_types_buttons(rule.id, media_types))
+
+        # Update UI
+        await event.edit("Select media types to block", buttons=await create_media_types_buttons(rule.id, media_types))
         await event.answer(msg)
-        
+
     except Exception as e:
-        logger.error(f"切换媒体类型时出错: {str(e)}")
-        logger.error(f"错误详情: {traceback.format_exc()}")
-        await event.answer(f"切换媒体类型时出错: {str(e)}")
+        logger.error(f"Error toggling media type: {str(e)}")
+        logger.error(f"Error details: {traceback.format_exc()}")
+        await event.answer(f"Error toggling media type: {str(e)}")
     finally:
         session.close()
     return
 
 
 async def callback_set_media_extensions(event, rule_id, session, message, data):
-    await event.edit("请选择要过滤的媒体扩展名：", buttons=await create_media_extensions_buttons(rule_id, page=0))
+    await event.edit("Select media extensions to filter:", buttons=await create_media_extensions_buttons(rule_id, page=0))
     return
 
 
 async def callback_media_extensions_page(event, rule_id, session, message, data):
     _, rule_id, page = data.split(':')
     page = int(page)
-    await event.edit("请选择要过滤的媒体扩展名：", buttons=await create_media_extensions_buttons(rule_id, page=page))
+    await event.edit("Select media extensions to filter:", buttons=await create_media_extensions_buttons(rule_id, page=page))
     return
 
 async def callback_toggle_media_extension(event, rule_id, session, message, data):
-    """处理切换媒体扩展名的回调"""
+    """Handle callback for toggling media extension"""
     try:
-        # 解析数据获取rule_id和扩展名
+        # Parse data to get rule_id and extension
         parts = data.split(':')
         if len(parts) < 3:
-            await event.answer("数据格式错误")
+            await event.answer("Invalid data format")
             return
-            
+
         # toggle_media_extension:31:jpg:0
-        action = parts[0]  
-        rule_id = parts[1]  
-        extension = parts[2]  
-        
-        # 获取当前页码，如果提供了页码
+        action = parts[0]
+        rule_id = parts[1]
+        extension = parts[2]
+
+        # Get current page number if provided
         current_page = 0
         if len(parts) > 3 and parts[3].isdigit():
             current_page = int(parts[3])
-        
-        # 获取规则
+
+        # Get rule
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer("规则不存在")
+            await event.answer("Rule not found")
             return
-            
-        # 获取当前规则已选择的扩展名
+
+        # Get currently selected extensions for this rule
         db_ops = await get_db_ops()
         selected_extensions = await db_ops.get_media_extensions(session, rule.id)
         selected_extension_list = [ext["extension"] for ext in selected_extensions]
-        
-        # 切换扩展名状态
+
+        # Toggle extension status
         was_selected = extension in selected_extension_list
         if was_selected:
-            # 如果已存在，则删除
+            # If exists, remove it
             extension_id = next((ext["id"] for ext in selected_extensions if ext["extension"] == extension), None)
             if extension_id:
                 success, msg = await db_ops.delete_media_extensions(session, rule.id, [extension_id])
                 if success:
-                    await event.answer(f"已移除扩展名: {extension}")
-                    
-                    # 检查是否启用了同步功能
+                    await event.answer(f"Extension removed: {extension}")
+
+                    # Check if sync is enabled
                     if rule.enable_sync:
-                        logger.info(f"规则 {rule.id} 启用了同步功能，正在同步媒体扩展名移除到关联规则")
-                        
-                        # 获取需要同步的规则列表
+                        logger.info(f"Rule {rule.id} has sync enabled, syncing media extension removal to associated rules")
+
+                        # Get list of rules to sync
                         sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
-                        
-                        # 为每个同步规则应用相同的媒体扩展名设置
+
+                        # Apply same media extension settings to each sync rule
                         for sync_rule in sync_rules:
                             sync_rule_id = sync_rule.sync_rule_id
-                            logger.info(f"正在同步移除媒体扩展名 {extension} 到规则 {sync_rule_id}")
-                            
-                            # 获取同步目标规则
+                            logger.info(f"Syncing removal of media extension {extension} to rule {sync_rule_id}")
+
+                            # Get sync target rule
                             target_rule = session.query(ForwardRule).get(sync_rule_id)
                             if not target_rule:
-                                logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                                logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                                 continue
-                            
-                            # 更新同步目标规则的媒体扩展名设置
+
+                            # Update sync target rule's media extension settings
                             try:
-                                # 获取目标规则当前扩展名设置
+                                # Get target rule's current extension settings
                                 target_extensions = await db_ops.get_media_extensions(session, sync_rule_id)
                                 target_extension_list = [ext["extension"] for ext in target_extensions]
-                                
-                                # 如果目标规则中存在该扩展名，则删除
+
+                                # If extension exists in target rule, remove it
                                 if extension in target_extension_list:
                                     target_extension_id = next((ext["id"] for ext in target_extensions if ext["extension"] == extension), None)
                                     if target_extension_id:
                                         await db_ops.delete_media_extensions(session, sync_rule_id, [target_extension_id])
-                                        logger.info(f"同步规则 {sync_rule_id} 的媒体扩展名 {extension} 已移除")
+                                        logger.info(f"Synced rule {sync_rule_id} media extension {extension} removed")
                                     else:
-                                        logger.warning(f"目标规则 {sync_rule_id} 中找不到扩展名 {extension} 的ID")
+                                        logger.warning(f"Cannot find ID for extension {extension} in target rule {sync_rule_id}")
                                 else:
-                                    logger.info(f"目标规则 {sync_rule_id} 中不存在扩展名 {extension}，无需删除")
+                                    logger.info(f"Extension {extension} not found in target rule {sync_rule_id}, no need to delete")
                             except Exception as e:
-                                logger.error(f"同步移除媒体扩展名到规则 {sync_rule_id} 时出错: {str(e)}")
+                                logger.error(f"Error syncing media extension removal to rule {sync_rule_id}: {str(e)}")
                                 continue
                 else:
-                    await event.answer(f"移除扩展名失败: {msg}")
+                    await event.answer(f"Failed to remove extension: {msg}")
         else:
-            # 如果不存在，则添加
+            # If not exists, add it
             success, msg = await db_ops.add_media_extensions(session, rule.id, [extension])
             if success:
-                await event.answer(f"已添加扩展名: {extension}")
-                
-                # 检查是否启用了同步功能
+                await event.answer(f"Extension added: {extension}")
+
+                # Check if sync is enabled
                 if rule.enable_sync:
-                    logger.info(f"规则 {rule.id} 启用了同步功能，正在同步媒体扩展名添加到关联规则")
-                    
-                    # 获取需要同步的规则列表
+                    logger.info(f"Rule {rule.id} has sync enabled, syncing media extension addition to associated rules")
+
+                    # Get list of rules to sync
                     sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
-                    
-                    # 为每个同步规则应用相同的媒体扩展名设置
+
+                    # Apply same media extension settings to each sync rule
                     for sync_rule in sync_rules:
                         sync_rule_id = sync_rule.sync_rule_id
-                        logger.info(f"正在同步添加媒体扩展名 {extension} 到规则 {sync_rule_id}")
-                        
-                        # 获取同步目标规则
+                        logger.info(f"Syncing addition of media extension {extension} to rule {sync_rule_id}")
+
+                        # Get sync target rule
                         target_rule = session.query(ForwardRule).get(sync_rule_id)
                         if not target_rule:
-                            logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                            logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                             continue
-                        
-                        # 更新同步目标规则的媒体扩展名设置
+
+                        # Update sync target rule's media extension settings
                         try:
-                            # 获取目标规则当前扩展名设置
+                            # Get target rule's current extension settings
                             target_extensions = await db_ops.get_media_extensions(session, sync_rule_id)
                             target_extension_list = [ext["extension"] for ext in target_extensions]
-                            
-                            # 如果目标规则中不存在该扩展名，则添加
+
+                            # If extension not in target rule, add it
                             if extension not in target_extension_list:
                                 await db_ops.add_media_extensions(session, sync_rule_id, [extension])
-                                logger.info(f"同步规则 {sync_rule_id} 的媒体扩展名 {extension} 已添加")
+                                logger.info(f"Synced rule {sync_rule_id} media extension {extension} added")
                             else:
-                                logger.info(f"目标规则 {sync_rule_id} 中已存在扩展名 {extension}，无需添加")
+                                logger.info(f"Extension {extension} already exists in target rule {sync_rule_id}, no need to add")
                         except Exception as e:
-                            logger.error(f"同步添加媒体扩展名到规则 {sync_rule_id} 时出错: {str(e)}")
+                            logger.error(f"Error syncing media extension addition to rule {sync_rule_id}: {str(e)}")
                             continue
             else:
-                await event.answer(f"添加扩展名失败: {msg}")
-        
-        # 更新界面，使用之前获取的页码
-        await event.edit("请选择要过滤的媒体扩展名：", buttons=await create_media_extensions_buttons(rule_id, page=current_page))
-        
+                await event.answer(f"Failed to add extension: {msg}")
+
+        # Update UI using previously obtained page number
+        await event.edit("Select media extensions to filter:", buttons=await create_media_extensions_buttons(rule_id, page=current_page))
+
     except Exception as e:
-        logger.error(f"切换媒体扩展名时出错: {str(e)}")
-        logger.error(f"错误详情: {traceback.format_exc()}")
-        await event.answer(f"切换媒体扩展名时出错: {str(e)}")
+        logger.error(f"Error toggling media extension: {str(e)}")
+        logger.error(f"Error details: {traceback.format_exc()}")
+        await event.answer(f"Error toggling media extension: {str(e)}")
     finally:
         session.close()
     return
 
 async def callback_toggle_media_allow_text(event, rule_id, session, message, data):
-    """处理切换放行文本的回调"""
+    """Handle callback for toggling text pass-through."""
     try:
         rule = session.query(ForwardRule).get(int(rule_id))
         if not rule:
-            await event.answer("规则不存在")
+            await event.answer("Rule not found")
             return
-        
-        # 切换状态
+
+        # Toggle the status
         rule.media_allow_text = not rule.media_allow_text
-        
-        # 检查是否启用了同步功能
+
+        # Check if sync is enabled
         if rule.enable_sync:
-            logger.info(f"规则 {rule.id} 启用了同步功能，正在同步'放行文本'设置到关联规则")
-            
-            # 获取需要同步的规则列表
+            logger.info(f"Rule {rule.id} has sync enabled, syncing 'allow text' setting to associated rules")
+
+            # Get list of rules to sync
             sync_rules = session.query(RuleSync).filter(RuleSync.rule_id == rule.id).all()
-            
-            # 为每个同步规则应用相同的设置
+
+            # Apply the same setting to each sync rule
             for sync_rule in sync_rules:
                 sync_rule_id = sync_rule.sync_rule_id
-                logger.info(f"正在同步'放行文本'设置到规则 {sync_rule_id}")
-                
-                # 获取同步目标规则
+                logger.info(f"Syncing 'allow text' setting to rule {sync_rule_id}")
+
+                # Get the sync target rule
                 target_rule = session.query(ForwardRule).get(sync_rule_id)
                 if not target_rule:
-                    logger.warning(f"同步目标规则 {sync_rule_id} 不存在，跳过")
+                    logger.warning(f"Sync target rule {sync_rule_id} not found, skipping")
                     continue
-                
-                # 更新同步目标规则的设置
+
+                # Update the sync target rule's setting
                 try:
                     target_rule.media_allow_text = rule.media_allow_text
-                    logger.info(f"同步规则 {sync_rule_id} 的'放行文本'设置已更新为 {rule.media_allow_text}")
+                    logger.info(f"Rule {sync_rule_id} 'allow text' setting updated to {rule.media_allow_text}")
                 except Exception as e:
-                    logger.error(f"同步'放行文本'设置到规则 {sync_rule_id} 时出错: {str(e)}")
+                    logger.error(f"Error syncing 'allow text' setting to rule {sync_rule_id}: {str(e)}")
                     continue
-        
-        # 提交更改
+
+        # Commit changes
         session.commit()
-        
-        # 更新界面
+
+        # Update UI
         await event.edit(await get_media_settings_text(), buttons=await create_media_settings_buttons(rule))
-        
-        # 向用户显示结果
-        status = "开启" if rule.media_allow_text else "关闭"
-        await event.answer(f"已{status}放行文本")
-        
+
+        # Show result to user
+        status = "enabled" if rule.media_allow_text else "disabled"
+        await event.answer(f"Text pass-through {status}")
+
     except Exception as e:
         session.rollback()
-        logger.error(f"切换放行文本设置时出错: {str(e)}")
-        logger.error(f"错误详情: {traceback.format_exc()}")
-        await event.answer(f"切换放行文本设置时出错: {str(e)}")
+        logger.error(f"Error toggling text pass-through setting: {str(e)}")
+        logger.error(f"Error details: {traceback.format_exc()}")
+        await event.answer(f"Error toggling text pass-through: {str(e)}")
     finally:
         session.close()
     return

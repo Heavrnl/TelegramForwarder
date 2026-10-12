@@ -16,11 +16,11 @@ from utils.constants import AI_SETTINGS_TEXT,MEDIA_SETTINGS_TEXT
 logger = logging.getLogger(__name__)
 
 async def get_main_module():
-    """获取 main 模块"""
+    """Get the main module"""
     try:
         return sys.modules['__main__']
     except KeyError:
-        # 如果找不到 main 模块，尝试手动导入
+        # If main module not found, try manual import
         spec = importlib.util.spec_from_file_location(
             "main",
             os.path.join(os.path.dirname(os.path.dirname(__file__)), "main.py")
@@ -30,58 +30,58 @@ async def get_main_module():
         return main
 
 async def get_user_client():
-    """获取用户客户端"""
+    """Get the user client"""
     main = await get_main_module()
     return main.user_client
 
 async def get_bot_client():
-    """获取机器人客户端"""
+    """Get the bot client"""
     main = await get_main_module()
     return main.bot_client
 
 async def get_db_ops():
-    """获取 main.py 中的 db_ops 实例"""
+    """Get the db_ops instance from main.py"""
     main = await get_main_module()
     if main.db_ops is None:
         main.db_ops = await main.init_db_ops()
     return main.db_ops
 
 async def get_user_id():
-    """获取用户ID，确保环境变量已加载"""
+    """Get the user ID, ensuring environment variables are loaded"""
     user_id_str = os.getenv('USER_ID')
     if not user_id_str:
-        logger.error('未设置 USER_ID 环境变量')
-        raise ValueError('必须在 .env 文件中设置 USER_ID')
+        logger.error('USER_ID environment variable not set')
+        raise ValueError('USER_ID must be set in the .env file')
     return int(user_id_str)
 
 
 async def get_current_rule(session, event):
-    """获取当前选中的规则"""
+    """Get the currently selected rule"""
     try:
-        # 获取当前聊天
+        # Get current chat
         current_chat = await event.get_chat()
-        logger.info(f'获取当前聊天: {current_chat.id}')
+        logger.info(f'Getting current chat: {current_chat.id}')
 
         current_chat_db = session.query(Chat).filter(
             Chat.telegram_chat_id == str(current_chat.id)
         ).first()
 
         if not current_chat_db or not current_chat_db.current_add_id:
-            logger.info('未找到当前聊天或未选择源聊天')
-            await reply_and_delete(event,'请先使用 /switch 选择一个源聊天')
+            logger.info('Current chat not found or no source chat selected')
+            await reply_and_delete(event,'Please use /switch to select a source chat first')
             return None
 
-        logger.info(f'当前选中的源聊天ID: {current_chat_db.current_add_id}')
+        logger.info(f'Currently selected source chat ID: {current_chat_db.current_add_id}')
 
-        # 查找对应的规则
+        # Find the matching rule
         source_chat = session.query(Chat).filter(
             Chat.telegram_chat_id == current_chat_db.current_add_id
         ).first()
 
         if source_chat:
-            logger.info(f'找到源聊天: {source_chat.name}')
+            logger.info(f'Source chat found: {source_chat.name}')
         else:
-            logger.error('未找到源聊天')
+            logger.error('Source chat not found')
             return None
 
         rule = session.query(ForwardRule).filter(
@@ -90,107 +90,107 @@ async def get_current_rule(session, event):
         ).first()
 
         if not rule:
-            logger.info('未找到对应的转发规则')
-            await reply_and_delete(event,'转发规则不存在')
+            logger.info('No matching forwarding rule found')
+            await reply_and_delete(event,'Forwarding rule not found')
             return None
 
-        logger.info(f'找到转发规则 ID: {rule.id}')
+        logger.info(f'Forwarding rule found, ID: {rule.id}')
         return rule, source_chat
     except Exception as e:
-        logger.error(f'获取当前规则时出错: {str(e)}')
+        logger.error(f'Error fetching current rule: {str(e)}')
         logger.exception(e)
-        await reply_and_delete(event,'获取当前规则时出错，请检查日志')
+        await reply_and_delete(event,'Error fetching current rule, please check logs')
         return None
 
 
 async def get_all_rules(session, event):
-    """获取当前聊天的所有规则"""
+    """Get all rules for the current chat"""
     try:
-        # 获取当前聊天
+        # Get current chat
         current_chat = await event.get_chat()
-        logger.info(f'获取当前聊天: {current_chat.id}')
+        logger.info(f'Getting current chat: {current_chat.id}')
 
         current_chat_db = session.query(Chat).filter(
             Chat.telegram_chat_id == str(current_chat.id)
         ).first()
 
         if not current_chat_db:
-            logger.info('未找到当前聊天')
-            await reply_and_delete(event,'当前聊天没有任何转发规则')
+            logger.info('Current chat not found')
+            await reply_and_delete(event,'This chat has no forwarding rules')
             return None
 
-        logger.info(f'找到当前聊天数据库记录 ID: {current_chat_db.id}')
+        logger.info(f'Current chat DB record found, ID: {current_chat_db.id}')
 
-        # 查找所有以当前聊天为目标的规则
+        # Find all rules targeting the current chat
         rules = session.query(ForwardRule).filter(
             ForwardRule.target_chat_id == current_chat_db.id
         ).all()
 
         if not rules:
-            logger.info('未找到任何转发规则')
-            await reply_and_delete(event,'当前聊天没有任何转发规则')
+            logger.info('No forwarding rules found')
+            await reply_and_delete(event,'This chat has no forwarding rules')
             return None
 
-        logger.info(f'找到 {len(rules)} 条转发规则')
+        logger.info(f'Found {len(rules)} forwarding rule(s)')
         return rules
     except Exception as e:
-        logger.error(f'获取所有规则时出错: {str(e)}')
+        logger.error(f'Error fetching all rules: {str(e)}')
         logger.exception(e)
-        await reply_and_delete(event,'获取规则时出错，请检查日志')
+        await reply_and_delete(event,'Error fetching rules, please check logs')
         return None
 
 
 
-# 添加缓存字典
+# Admin cache dictionary
 _admin_cache = {}
-_CACHE_DURATION = timedelta(minutes=30)  # 缓存30分钟
+_CACHE_DURATION = timedelta(minutes=30)  # Cache for 30 minutes
 
 
 
 async def get_channel_admins(client, chat_id):
-    """获取频道管理员列表，带缓存机制"""
+    """Get channel admin list with caching"""
     current_time = datetime.now()
     
-    # 检查缓存是否存在且未过期
+    # Check if cache exists and has not expired
     if chat_id in _admin_cache:
         cache_data = _admin_cache[chat_id]
         if current_time - cache_data['timestamp'] < _CACHE_DURATION:
             return cache_data['admin_ids']
     
-    # 缓存不存在或已过期，重新获取管理员列表
+    # Cache missing or expired, re-fetch admin list
     try:
         admins = await client.get_participants(chat_id, filter=ChannelParticipantsAdmins)
         admin_ids = [admin.id for admin in admins]
         
-        # 更新缓存
+        # Update cache
         _admin_cache[chat_id] = {
             'admin_ids': admin_ids,
             'timestamp': current_time
         }
         return admin_ids
     except Exception as e:
-        logger.error(f'获取频道管理员列表失败: {str(e)}')
+        logger.error(f'Failed to get channel admin list: {str(e)}')
         return None
 
 async def is_admin(event):
-    """检查用户是否为频道/群组管理员
+    """Check if the user is a channel/group admin
     
     Args:
-        event: 事件对象
+        event: event object
     Returns:
-        bool: 是否是管理员
+        bool: whether the user is an admin
     """
     try:
-        # 获取所有机器人管理员列表
+        # Get all bot admin IDs
         bot_admins = get_admin_list()
 
-        # 检查是否有message属性
+        # Check if event has message attribute
         if not hasattr(event, 'message'):
-            # 没有message属性,是回调处理
+            # No message attribute — this is a callback
             if event.sender_id in bot_admins:
                 return True
             else:
-                logger.info(f'用户 {event.sender_id} 非管理员，操作已被忽略')
+                logger.info(f'User {event.sender_id} is not an admin, action ignored')
                 return False
             
         message = event.message
@@ -200,42 +200,42 @@ async def is_admin(event):
         
     
         if message.is_channel and not message.is_group:
-            # 获取频道管理员列表（使用缓存）
+            # Get channel admin list (with cache)
             channel_admins = await get_channel_admins(client, event.chat_id)
             if channel_admins is None:
                 return False
                 
             
             
-            # 检查机器人管理员是否在频道管理员列表中
+            # Check if a bot admin is in the channel admin list
             admin_in_channel = any(admin_id in channel_admins for admin_id in bot_admins)
             if not admin_in_channel:
-                logger.info(f'机器人管理员不在频道管理员列表中，已忽略')
+                logger.info(f'No bot admin found in channel admin list, ignored')
                 return False
             return True
         else:
-            # 检查发送者ID
-            user_id = event.sender_id  # 使用 sender_id 作为主要ID来源
-            logger.info(f'发送者ID：{user_id}')
+            # Check sender ID
+            user_id = event.sender_id  # Use sender_id as the primary ID source
+            logger.info(f'Sender ID: {user_id}')
             
             bot_admins = get_admin_list()
-            # 检查是否是机器人管理员
+            # Check if user is a bot admin
             if user_id not in bot_admins:
-                logger.info(f'非管理员的消息，已忽略')
+                logger.info(f'Message from non-admin, ignored')
                 return False
             return True
     except Exception as e:
-        logger.error(f"检查管理员权限时出错: {str(e)}")
+        logger.error(f"Error checking admin permissions: {str(e)}")
         return False
 
 async def get_media_settings_text():
-    """生成媒体设置页面的文本"""
+    """Generate media settings page text"""
     return MEDIA_SETTINGS_TEXT
 
 async def get_ai_settings_text(rule):
-    """生成AI设置页面的文本"""
-    ai_prompt = rule.ai_prompt or os.getenv('DEFAULT_AI_PROMPT', '未设置')
-    summary_prompt = rule.summary_prompt or os.getenv('DEFAULT_SUMMARY_PROMPT', '未设置')
+    """Generate AI settings page text"""
+    ai_prompt = rule.ai_prompt or os.getenv('DEFAULT_AI_PROMPT', 'Not set')
+    summary_prompt = rule.summary_prompt or os.getenv('DEFAULT_SUMMARY_PROMPT', 'Not set')
 
     return AI_SETTINGS_TEXT.format(
         ai_prompt=ai_prompt,
@@ -244,87 +244,87 @@ async def get_ai_settings_text(rule):
 
 async def get_sender_info(event, rule_id):
     """
-    获取发送者信息
+    Get sender information
     
     Args:
-        event: 消息事件
-        rule_id: 规则ID
+        event: message event
+        rule_id: rule ID
         
     Returns:
-        str: 发送者信息
+        str: sender info
     """
     try:
-        logger.info("开始获取发送者信息")
+        logger.info("Fetching sender info")
         sender_name = None
 
         if hasattr(event.message, 'sender_chat') and event.message.sender_chat:
-            # 用户以频道身份发送消息
+            # User sending as a channel
             sender = event.message.sender_chat
             sender_name = sender.title if hasattr(sender, 'title') else None
-            logger.info(f"使用频道信息: {sender_name}")
+            logger.info(f"Using channel info: {sender_name}")
 
         elif event.sender:
-            # 用户以个人身份发送消息
+            # User sending as an individual
             sender = event.sender
             sender_name = (
                 sender.title if hasattr(sender, 'title')
                 else f"{sender.first_name or ''} {sender.last_name or ''}".strip()
             )
-            logger.info(f"使用发送者信息: {sender_name}")
+            logger.info(f"Using sender info: {sender_name}")
 
         elif hasattr(event.message, 'peer_id') and event.message.peer_id:
-            # 尝试从 peer_id 获取信息
+            # Try to get info from peer_id
             peer = event.message.peer_id
             if hasattr(peer, 'channel_id'):
                 try:
-                    # 尝试获取频道信息
+                    # Try to get channel info
                     channel = await event.client.get_entity(peer)
                     sender_name = channel.title if hasattr(channel, 'title') else None
-                    logger.info(f"使用peer_id信息: {sender_name}")
+                    logger.info(f"Using peer_id info: {sender_name}")
                 except Exception as ce:
-                    logger.error(f'获取频道信息失败: {str(ce)}')
+                    logger.error(f'Failed to get channel info: {str(ce)}')
 
         if sender_name:
             return sender_name
         else:
-            logger.warning(f"规则 ID: {rule_id} - 无法获取发送者信息")
+            logger.warning(f"Rule ID: {rule_id} - Unable to get sender info")
             return None
 
     except Exception as e:
-        logger.error(f'获取发送者信息出错: {str(e)}')
+        logger.error(f'Error getting sender info: {str(e)}')
         return None
 
 async def check_and_clean_chats(session, rule=None):
     """
-    检查并清理不再与任何规则关联的聊天记录
+    Check and clean up chat records no longer associated with any rule
     
     Args:
-        session: 数据库会话
-        rule: 被删除的规则对象（可选），如果提供则从中获取聊天ID
+        session: database session
+        rule: deleted rule object (optional), used to get chat IDs if provided
         
     Returns:
-        int: 删除的聊天记录数量
+        int: number of deleted chat records
     """
     deleted_count = 0
     
     try:
-        # 获取所有聊天ID
+        # Get all chat IDs
         chat_ids_to_check = set()
         
-        # 如果提供了规则，先检查这些受影响的聊天
+        # If a rule is provided, check the affected chats first
         if rule:
             if rule.source_chat_id:
                 chat_ids_to_check.add(rule.source_chat_id)
             if rule.target_chat_id:
                 chat_ids_to_check.add(rule.target_chat_id)
         else:
-            # 如果没有提供规则，则获取所有聊天
+            # If no rule provided, check all chats
             all_chats = session.query(Chat.id).all()
             chat_ids_to_check = set(chat[0] for chat in all_chats)
         
-        # 对每个聊天ID进行检查
+        # Check each chat ID
         for chat_id in chat_ids_to_check:
-            # 检查此聊天是否还被任何规则引用
+            # Check if this chat is still referenced by any rule
             as_source = session.query(ForwardRule).filter(
                 ForwardRule.source_chat_id == chat_id
             ).count()
@@ -333,48 +333,48 @@ async def check_and_clean_chats(session, rule=None):
                 ForwardRule.target_chat_id == chat_id
             ).count()
             
-            # 如果聊天不再被任何规则引用
+            # If the chat is no longer referenced by any rule
             if as_source == 0 and as_target == 0:
                 chat = session.query(Chat).get(chat_id)
                 if chat:
-                    # 获取telegram_chat_id以便日志记录
+                    # Get telegram_chat_id for logging
                     telegram_chat_id = chat.telegram_chat_id
-                    name = chat.name or "未命名聊天"
+                    name = chat.name or "Unnamed Chat"
                     
-                    # 清理所有引用此聊天作为current_add_id的记录
+                    # Clear all records referencing this chat as current_add_id
                     chats_using_this = session.query(Chat).filter(
                         Chat.current_add_id == telegram_chat_id
                     ).all()
                     
                     for other_chat in chats_using_this:
                         other_chat.current_add_id = None
-                        logger.info(f'清除聊天 {other_chat.name} 的current_add_id设置')
+                        logger.info(f'Cleared current_add_id for chat {other_chat.name}')
                     
-                    # 删除聊天记录
+                    # Delete chat record
                     session.delete(chat)
-                    logger.info(f'删除未使用的聊天: {name} (ID: {telegram_chat_id})')
+                    logger.info(f'Deleted unused chat: {name} (ID: {telegram_chat_id})')
                     deleted_count += 1
         
-        # 如果有删除操作，提交更改
+        # If any deletions occurred, commit changes
         if deleted_count > 0:
             session.commit()
-            logger.info(f'共清理了 {deleted_count} 个未使用的聊天记录')
+            logger.info(f'Cleaned up {deleted_count} unused chat record(s)')
         
         return deleted_count
         
     except Exception as e:
-        logger.error(f'检查和清理聊天记录时出错: {str(e)}')
+        logger.error(f'Error checking and cleaning chat records: {str(e)}')
         session.rollback()
         return 0
 
 def get_admin_list():
-    """获取管理员ID列表，如果ADMINS为空则使用USER_ID"""
+    """Get the admin ID list, defaulting to USER_ID if ADMINS is empty"""
     admin_str = os.getenv('ADMINS', '')
     if not admin_str:
         user_id = os.getenv('USER_ID')
         if not user_id:
-            logger.error('未设置 USER_ID 环境变量')
-            raise ValueError('必须在 .env 文件中设置 USER_ID')
+            logger.error('USER_ID environment variable not set')
+            raise ValueError('USER_ID must be set in the .env file')
         return [int(user_id)]
     return [int(admin.strip()) for admin in admin_str.split(',') if admin.strip()]
 
@@ -383,55 +383,55 @@ def get_admin_list():
 
 async def check_keywords(rule, message_text, event = None):
     """
-    检查消息是否匹配关键字规则
+    Check if a message matches keyword rules
 
     Args:
-        rule: 转发规则对象，包含 forward_mode 和 keywords 属性
-        message_text: 要检查的消息文本
-        event: 可选的消息事件对象
+        rule: forwarding rule object with forward_mode and keywords attributes
+        message_text: the message text to check
+        event: optional message event object
 
     Returns:
-        bool: 是否应该转发消息
+        bool: whether the message should be forwarded
     """
     reverse_blacklist = rule.enable_reverse_blacklist
     reverse_whitelist = rule.enable_reverse_whitelist
-    logger.info(f"反转黑名单: {reverse_blacklist}, 反转白名单: {reverse_whitelist}")
+    logger.info(f"Reverse blacklist: {reverse_blacklist}, Reverse whitelist: {reverse_whitelist}")
 
-    # 处理用户信息过滤
+    # Process user info filtering
     if rule.is_filter_user_info and event:
         message_text = await process_user_info(event, rule.id, message_text)
 
-    logger.info("开始检查关键字规则")
-    logger.info(f"当前转发模式: {rule.forward_mode}")
+    logger.info("Starting keyword rule check")
+    logger.info(f"Current forward mode: {rule.forward_mode}")
     forward_mode = rule.forward_mode
 
-    # 仅白名单模式
+    # Whitelist-only mode
     if forward_mode == ForwardMode.WHITELIST:
         return await process_whitelist_mode(rule, message_text, reverse_blacklist)
 
-    # 仅黑名单模式
+    # Blacklist-only mode
     elif forward_mode == ForwardMode.BLACKLIST:
         return await process_blacklist_mode(rule, message_text, reverse_whitelist)
 
-    # 先白后黑模式
+    # Whitelist-then-blacklist mode
     elif forward_mode == ForwardMode.WHITELIST_THEN_BLACKLIST:
         return await process_whitelist_then_blacklist_mode(rule, message_text, reverse_blacklist)
 
-    # 先黑后白模式
+    # Blacklist-then-whitelist mode
     elif forward_mode == ForwardMode.BLACKLIST_THEN_WHITELIST:
         return await process_blacklist_then_whitelist_mode(rule, message_text, reverse_whitelist)
 
-    logger.error(f"未知的转发模式: {forward_mode}")
+    logger.error(f"Unknown forward mode: {forward_mode}")
     return False
 
 async def process_whitelist_mode(rule, message_text, reverse_blacklist):
-    """处理仅白名单模式"""
-    logger.info("进入仅白名单模式")
+    """Handle whitelist-only mode"""
+    logger.info("Entering whitelist-only mode")
     should_forward = False
 
-    # 检查普通白名单关键词
+    # Check regular whitelist keywords
     whitelist_keywords = [k for k in rule.keywords if not k.is_blacklist]
-    logger.info(f"普通白名单关键词: {[k.keyword for k in whitelist_keywords]}")
+    logger.info(f"Whitelist keywords: {[k.keyword for k in whitelist_keywords]}")
     
     for keyword in whitelist_keywords:
         if await check_keyword_match(keyword, message_text):
@@ -439,14 +439,14 @@ async def process_whitelist_mode(rule, message_text, reverse_blacklist):
             break
     
     if not should_forward:
-        logger.info("未匹配到普通白名单关键词，不转发")
+        logger.info("No whitelist keyword matched, not forwarding")
         return False
 
-    # 如果启用了黑名单反转，还需要匹配反转后的黑名单（作为第二重白名单）
+    # If blacklist reversal is enabled, also require a match against the reversed blacklist (as a second whitelist)
     if reverse_blacklist:
-        logger.info("检查反转后的黑名单关键词（作为白名单）")
+        logger.info("Checking reversed blacklist keywords (as whitelist)")
         reversed_blacklist = [k for k in rule.keywords if k.is_blacklist]
-        logger.info(f"反转后的黑名单关键词: {[k.keyword for k in reversed_blacklist]}")
+        logger.info(f"Reversed blacklist keywords: {[k.keyword for k in reversed_blacklist]}")
         
         reversed_match = False
         for keyword in reversed_blacklist:
@@ -455,57 +455,57 @@ async def process_whitelist_mode(rule, message_text, reverse_blacklist):
                 break
         
         if not reversed_match:
-            logger.info("未匹配到反转后的黑名单关键词，不转发")
+            logger.info("No reversed blacklist keyword matched, not forwarding")
             return False
 
-    logger.info("所有白名单条件都满足，允许转发")
+    logger.info("All whitelist conditions met, forwarding allowed")
     return True
 
 async def process_blacklist_mode(rule, message_text, reverse_whitelist):
-    """处理仅黑名单模式"""
-    logger.info("进入仅黑名单模式")
+    """Handle blacklist-only mode"""
+    logger.info("Entering blacklist-only mode")
 
-    # 检查普通黑名单关键词
+    # Check regular blacklist keywords
     blacklist_keywords = [k for k in rule.keywords if k.is_blacklist]
-    logger.info(f"普通黑名单关键词: {[k.keyword for k in blacklist_keywords]}")
+    logger.info(f"Blacklist keywords: {[k.keyword for k in blacklist_keywords]}")
     
     for keyword in blacklist_keywords:
         if await check_keyword_match(keyword, message_text):
-            logger.info(f"匹配到黑名单关键词 '{keyword.keyword}'，不转发")
+            logger.info(f"Blacklist keyword matched: '{keyword.keyword}', not forwarding")
             return False
 
-    # 如果启用了白名单反转，检查反转后的白名单（作为黑名单）
+    # If whitelist reversal is enabled, check the reversed whitelist (as blacklist)
     if reverse_whitelist:
-        logger.info("检查反转后的白名单关键词（作为黑名单）")
+        logger.info("Checking reversed whitelist keywords (as blacklist)")
         reversed_whitelist = [k for k in rule.keywords if not k.is_blacklist]
-        logger.info(f"反转后的白名单关键词: {[k.keyword for k in reversed_whitelist]}")
+        logger.info(f"Reversed whitelist keywords: {[k.keyword for k in reversed_whitelist]}")
         
         for keyword in reversed_whitelist:
             if await check_keyword_match(keyword, message_text):
-                logger.info(f"匹配到反转后的白名单关键词 '{keyword.keyword}'，不转发")
+                logger.info(f"Reversed whitelist keyword matched: '{keyword.keyword}', not forwarding")
                 return False
 
-    logger.info("未匹配到任何黑名单关键词，允许转发")
+    logger.info("No blacklist keyword matched, forwarding allowed")
     return True
 
 async def check_keyword_match(keyword, message_text):
-    """检查单个关键词是否匹配"""
-    logger.info(f"检查关键字: {keyword.keyword} (正则: {keyword.is_regex})")
+    """Check if a single keyword matches"""
+    logger.info(f"Checking keyword: {keyword.keyword} (regex: {keyword.is_regex})")
     if keyword.is_regex:
         try:
             if re.search(keyword.keyword, message_text):
-                logger.info(f"正则匹配成功: {keyword.keyword}")
+                logger.info(f"Regex match found: {keyword.keyword}")
                 return True
         except re.error:
-            logger.error(f"正则表达式错误: {keyword.keyword}")
+            logger.error(f"Regex error: {keyword.keyword}")
     else:
         if keyword.keyword.lower() in message_text.lower():
-            logger.info(f"关键字匹配成功: {keyword.keyword}")
+            logger.info(f"Keyword matched: {keyword.keyword}")
             return True
     return False
 
 async def process_user_info(event, rule_id, message_text):
-    """处理用户信息过滤"""
+    """Process user info filtering"""
     username = await get_sender_info(event, rule_id)
     name = None
     
@@ -520,31 +520,31 @@ async def process_user_info(event, rule_id, message_text):
         )
         
     if username and name:
-        logger.info(f"成功获取用户信息: {username} {name}")
+        logger.info(f"Successfully retrieved sender info: {username} {name}")
         return f"{username} {name}:\n{message_text}"
     elif username:
-        logger.info(f"成功获取用户信息: {username}")
+        logger.info(f"Successfully retrieved sender info: {username}")
         return f"{username}:\n{message_text}"
     elif name:
-        logger.info(f"成功获取用户信息: {name}")
+        logger.info(f"Successfully retrieved sender info: {name}")
         return f"{name}:\n{message_text}"
     else:
-        logger.warning(f"规则 ID: {rule_id} - 无法获取发送者信息")
+        logger.warning(f"Rule ID: {rule_id} - Unable to get sender info")
         return message_text
 
 
 async def process_whitelist_then_blacklist_mode(rule, message_text, reverse_blacklist):
-    """处理先白后黑模式
+    """Handle whitelist-then-blacklist mode
     
-    先检查白名单（必须匹配），然后检查黑名单（不能匹配）
-    如果启用黑名单反转，则黑名单变成第二重白名单（必须匹配）
+    First check whitelist (must match), then check blacklist (must not match)
+    If blacklist reversal is enabled, blacklist becomes a second whitelist (must match)
     """
-    logger.info("进入先白后黑模式")
+    logger.info("Entering whitelist-then-blacklist mode")
 
-    # 检查普通白名单（必须匹配）
+    # Check regular whitelist (must match)
     whitelist_match = False
     whitelist_keywords = [k for k in rule.keywords if not k.is_blacklist]
-    logger.info(f"检查普通白名单关键词: {[k.keyword for k in whitelist_keywords]}")
+    logger.info(f"Checking whitelist keywords: {[k.keyword for k in whitelist_keywords]}")
     
     for keyword in whitelist_keywords:
         if await check_keyword_match(keyword, message_text):
@@ -552,16 +552,16 @@ async def process_whitelist_then_blacklist_mode(rule, message_text, reverse_blac
             break
     
     if not whitelist_match:
-        logger.info("未匹配到白名单关键词，不转发")
+        logger.info("No whitelist keyword matched, not forwarding")
         return False
 
-    # 根据反转设置处理黑名单
+    # Handle blacklist based on reversal setting
     blacklist_keywords = [k for k in rule.keywords if k.is_blacklist]
     
     if reverse_blacklist:
-        # 黑名单反转为白名单，必须匹配才转发
-        logger.info("黑名单已反转，作为第二重白名单检查")
-        logger.info(f"反转后的黑名单关键词: {[k.keyword for k in blacklist_keywords]}")
+        # Blacklist reversed to whitelist — must match to forward
+        logger.info("Blacklist reversed, checking as second whitelist")
+        logger.info(f"Reversed blacklist keywords: {[k.keyword for k in blacklist_keywords]}")
         
         blacklist_match = False
         for keyword in blacklist_keywords:
@@ -570,51 +570,51 @@ async def process_whitelist_then_blacklist_mode(rule, message_text, reverse_blac
                 break
         
         if not blacklist_match:
-            logger.info("未匹配到反转后的黑名单关键词，不转发")
+            logger.info("No reversed blacklist keyword matched, not forwarding")
             return False
     else:
-        # 正常黑名单，匹配则不转发
-        logger.info(f"检查普通黑名单关键词: {[k.keyword for k in blacklist_keywords]}")
+        # Normal blacklist — match means do not forward
+        logger.info(f"Checking blacklist keywords: {[k.keyword for k in blacklist_keywords]}")
         for keyword in blacklist_keywords:
             if await check_keyword_match(keyword, message_text):
-                logger.info(f"匹配到黑名单关键词 '{keyword.keyword}'，不转发")
+                logger.info(f"Blacklist keyword matched: '{keyword.keyword}', not forwarding")
                 return False
 
-    logger.info("所有条件都满足，允许转发")
+    logger.info("All conditions met, forwarding allowed")
     return True
 
 async def process_blacklist_then_whitelist_mode(rule, message_text, reverse_whitelist):
-    """处理先黑后白模式
+    """Handle blacklist-then-whitelist mode
     
-    先检查黑名单（不能匹配），然后检查白名单（必须匹配）
-    如果启用白名单反转，则白名单变成第二重黑名单（不能匹配）
+    First check blacklist (must not match), then check whitelist (must match)
+    If whitelist reversal is enabled, whitelist becomes a second blacklist (must not match)
     """
-    logger.info("进入先黑后白模式")
+    logger.info("Entering blacklist-then-whitelist mode")
 
-    # 检查普通黑名单（匹配则拒绝）
+    # Check regular blacklist (match = reject)
     blacklist_keywords = [k for k in rule.keywords if k.is_blacklist]
-    logger.info(f"检查普通黑名单关键词: {[k.keyword for k in blacklist_keywords]}")
+    logger.info(f"Checking blacklist keywords: {[k.keyword for k in blacklist_keywords]}")
     
     for keyword in blacklist_keywords:
         if await check_keyword_match(keyword, message_text):
-            logger.info(f"匹配到黑名单关键词 '{keyword.keyword}'，不转发")
+            logger.info(f"Blacklist keyword matched: '{keyword.keyword}', not forwarding")
             return False
 
-    # 处理白名单
+    # Process whitelist
     whitelist_keywords = [k for k in rule.keywords if not k.is_blacklist]
     
     if reverse_whitelist:
-        # 白名单反转为黑名单，匹配则不转发
-        logger.info("白名单已反转，作为第二重黑名单检查")
-        logger.info(f"反转后的白名单关键词: {[k.keyword for k in whitelist_keywords]}")
+        # Whitelist reversed to blacklist — match means do not forward
+        logger.info("Whitelist reversed, checking as second blacklist")
+        logger.info(f"Reversed whitelist keywords: {[k.keyword for k in whitelist_keywords]}")
         
         for keyword in whitelist_keywords:
             if await check_keyword_match(keyword, message_text):
-                logger.info(f"匹配到反转后的白名单关键词 '{keyword.keyword}'，不转发")
+                logger.info(f"Reversed whitelist keyword matched: '{keyword.keyword}', not forwarding")
                 return False
     else:
-        # 正常白名单，必须匹配才转发
-        logger.info(f"检查普通白名单关键词: {[k.keyword for k in whitelist_keywords]}")
+        # Normal whitelist — must match to forward
+        logger.info(f"Checking whitelist keywords: {[k.keyword for k in whitelist_keywords]}")
         whitelist_match = False
         for keyword in whitelist_keywords:
             if await check_keyword_match(keyword, message_text):
@@ -622,8 +622,8 @@ async def process_blacklist_then_whitelist_mode(rule, message_text, reverse_whit
                 break
         
         if not whitelist_match:
-            logger.info("未匹配到白名单关键词，不转发")
+            logger.info("No whitelist keyword matched, not forwarding")
             return False
 
-    logger.info("所有条件都满足，允许转发")
+    logger.info("All conditions met, forwarding allowed")
     return True

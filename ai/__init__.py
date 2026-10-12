@@ -10,23 +10,23 @@ import logging
 from utils.settings import load_ai_models
 from utils.constants import DEFAULT_AI_MODEL
 
-# 获取日志记录器
+# Get logger
 logger = logging.getLogger(__name__)
 
 async def get_ai_provider(model=None):
-    """获取AI提供者实例"""
+    """Get an AI provider instance"""
     if not model:
         model = DEFAULT_AI_MODEL
     
-    # 加载提供商配置（使用dict格式）
+    # Load provider config (dict format)
     providers_config = load_ai_models(type="dict")
     
-    # 根据模型名称选择对应的提供者
+    # Select provider based on model name
     provider = None
     
-    # 遍历配置中的每个提供商
+    # Iterate over all providers in config
     for provider_name, models_list in providers_config.items():
-        # 检查完全匹配
+        # Check for exact match
         if model in models_list:
             if provider_name == "openai":
                 provider = OpenAIProvider()
@@ -43,7 +43,7 @@ async def get_ai_provider(model=None):
             break
     
     if not provider:
-        raise ValueError(f"不支持的模型: {model}")
+        raise ValueError(f"Unsupported model: {model}")
 
     return provider
 
