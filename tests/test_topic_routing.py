@@ -62,6 +62,17 @@ class TopicTests(unittest.TestCase):
             with self.subTest(command=bad), self.assertRaises(ValueError):
                 parse_bind_args(bad)
 
+    def test_bind_accepts_mobile_smart_dashes_without_changing_names(self):
+        for source_prefix, target_prefix in (('—', '—'), ('–', '–'), ('--', '—')):
+            with self.subTest(prefixes=(source_prefix, target_prefix)):
+                self.assertEqual(parse_bind_args(
+                    f'/bind https://t.me/XCSQTG {source_prefix}source-topic 23 {target_prefix}target-topic 19'),
+                    ('https://t.me/XCSQTG', None, 23, 19))
+        self.assertEqual(parse_bind_args('/bind "源—群" "目标–群" —target-topic 19'),
+                         ('源—群', '目标–群', 0, 19))
+        with self.assertRaisesRegex(ValueError, '未知或重复参数'):
+            parse_bind_args('/bind source —target-topic 19 --target-topic 20')
+
     def test_cycles_include_wildcards_and_indirect_routes(self):
         self.assertFalse(creates_route_cycle([], 1, 17, 1, 12))
         self.assertTrue(creates_route_cycle([], 1, 17, 1, 17))

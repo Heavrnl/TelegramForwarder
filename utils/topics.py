@@ -55,6 +55,10 @@ def parse_bind_args(text):
     index = 0
     while index < len(args):
         arg = args[index]
+        # Mobile smart punctuation can turn the leading "--" into a single dash.
+        # Normalize only known option tokens, leaving chat names untouched.
+        if arg.startswith(('—', '–')) and '--' + arg[1:] in topics:
+            arg = '--' + arg[1:]
         if arg.startswith('--'):
             if arg not in topics or arg in seen:
                 raise ValueError(f'未知或重复参数: {arg}')
