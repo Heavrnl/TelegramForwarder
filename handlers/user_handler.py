@@ -3,6 +3,7 @@ import re
 import logging
 import asyncio
 from utils.common import check_keywords, get_sender_info
+from utils.topics import forward_to_topic
 
 
 logger = logging.getLogger(__name__)
@@ -62,23 +63,27 @@ async def process_forward_rule(client, event, chat_id, rule):
                 messages.sort()
                 
                 # 一次性转发所有消息
-                await client.forward_messages(
+                await forward_to_topic(
+                    client,
                     target_chat_id,
                     messages,
-                    event.chat_id
+                    event.chat_id,
+                    rule.target_topic_id
                 )
                 logger.info(f'[用户] 已转发 {len(messages)} 条媒体组消息到: {target_chat.name} ({target_chat_id})')
                 
             else:
                 # 处理单条消息
-                await client.forward_messages(
+                await forward_to_topic(
+                    client,
                     target_chat_id,
                     event.message.id,
-                    event.chat_id
+                    event.chat_id,
+                    rule.target_topic_id
                 )
                 logger.info(f'[用户] 消息已转发到: {target_chat.name} ({target_chat_id})')
                 
                 
         except Exception as e:
             logger.error(f'转发消息时出错: {str(e)}')
-            logger.exception(e) 
+            logger.exception(e)

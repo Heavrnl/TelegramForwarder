@@ -16,6 +16,7 @@ class Chat(Base):
     telegram_chat_id = Column(String, unique=True, nullable=False)
     name = Column(String, nullable=True)
     current_add_id = Column(String, nullable=True)
+    current_rule_id = Column(Integer, nullable=True)
 
     # 关系
     source_rules = relationship('ForwardRule', foreign_keys='ForwardRule.source_chat_id', back_populates='source_chat')
@@ -27,6 +28,8 @@ class ForwardRule(Base):
     id = Column(Integer, primary_key=True)
     source_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
     target_chat_id = Column(Integer, ForeignKey('chats.id'), nullable=False)
+    source_topic_id = Column(Integer, nullable=False, default=0, server_default='0')
+    target_topic_id = Column(Integer, nullable=False, default=0, server_default='0')
     forward_mode = Column(Enum(ForwardMode), nullable=False, default=ForwardMode.BLACKLIST)
     use_bot = Column(Boolean, default=True)
     message_mode = Column(Enum(MessageMode), nullable=False, default=MessageMode.MARKDOWN)
@@ -79,8 +82,22 @@ class ForwardRule(Base):
 
     # 添加唯一约束
     __table_args__ = (
-        UniqueConstraint('source_chat_id', 'target_chat_id', name='unique_source_target'),
+        UniqueConstraint('source_chat_id', 'source_topic_id', 'target_chat_id', 'target_topic_id', name='unique_source_target_topic'),
     )
+
+    @property
+    def source_label(self):
+        from utils.topics import endpoint_label
+        return endpoint_label(self.source_chat, self.source_topic_id, source=True)
+
+    @property
+    def target_label(self):
+        from utils.topics import endpoint_label
+        return endpoint_label(self.target_chat, self.target_topic_id)
+
+    @property
+    def route_label(self):
+        return f'{self.source_label} → {self.target_label}'
 
     # 关系
     source_chat = relationship('Chat', foreign_keys=[source_chat_id], back_populates='source_rules')
@@ -234,13 +251,15 @@ class User(Base):
 
 def migrate_db(engine):
     """数据库迁移函数，确保新字段的添加"""
+    from models.topic_migration import migrate_topic_routing
+    migrate_topic_routing(engine)
     inspector = inspect(engine)
     
     # 获取当前数据库中所有表
     existing_tables = inspector.get_table_names()
     
     # 连接数据库
-    connection = engine.connect()
+    forward_rules_columns = {column['name'] for column in inspector.get_columns('forward_rules')}
         
     try:
         with engine.connect() as connection:
@@ -372,7 +391,7 @@ def migrate_db(engine):
     }
 
     # 添加缺失的列
-    with engine.connect() as connection:
+    with engine.begin() as connection:
         # 添加forward_rules表的列
         for column, sql in forward_rules_new_columns.items():
             if column not in forward_rules_columns:
@@ -398,63 +417,66 @@ def migrate_db(engine):
             connection.execute(text("ALTER TABLE forward_rules RENAME COLUMN mode TO forward_mode"))
             logging.info('修改forward_rules表的列mode为forward_mode成功')
 
-        # 修改keywords表的唯一约束
-        try:
-            with engine.connect() as connection:
-                # 检查索引是否存在
-                result = connection.execute(text("""
-                    SELECT name FROM sqlite_master 
-                    WHERE type='index' AND name='unique_rule_keyword_is_regex_is_blacklist'
-                """))
-                index_exists = result.fetchone() is not None
-                if not index_exists:
-                    logging.info('开始更新 keywords 表的唯一约束...')
-                    try:
-                        
-                        with engine.begin() as connection:
-                            # 创建临时表
-                            connection.execute(text("""
-                                CREATE TABLE keywords_temp (
-                                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                                    rule_id INTEGER,
-                                    keyword TEXT,
-                                    is_regex BOOLEAN,
-                                    is_blacklist BOOLEAN
-                                    -- 如果 keywords 表还有其他字段，请在这里一并定义
-                                )
-                            """))
-                            logging.info('创建 keywords_temp 表结构成功')
+    # 修改keywords表的唯一约束
+    try:
+        with engine.connect() as connection:
+            # 检查索引是否存在
+            result = connection.execute(text("""
+                SELECT name FROM sqlite_master
+                WHERE type='index' AND name='unique_rule_keyword_is_regex_is_blacklist'
+            """))
+            index_exists = result.fetchone() is not None or any(
+                c['column_names'] == ['rule_id', 'keyword', 'is_regex', 'is_blacklist']
+                for c in inspect(engine).get_unique_constraints('keywords')
+            )
+            if not index_exists:
+                logging.info('开始更新 keywords 表的唯一约束...')
+                try:
 
-                            # 将原表数据复制到临时表，让数据库自动生成 id
-                            result = connection.execute(text("""
-                                INSERT INTO keywords_temp (rule_id, keyword, is_regex, is_blacklist)
-                                SELECT rule_id, keyword, is_regex, is_blacklist FROM keywords
-                            """))
-                            logging.info(f'复制数据到 keywords_temp 成功，影响行数: {result.rowcount}')
+                    with engine.begin() as connection:
+                        # 创建临时表
+                        connection.execute(text("""
+                            CREATE TABLE keywords_temp (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                rule_id INTEGER,
+                                keyword TEXT,
+                                is_regex BOOLEAN,
+                                is_blacklist BOOLEAN
+                                -- 如果 keywords 表还有其他字段，请在这里一并定义
+                            )
+                        """))
+                        logging.info('创建 keywords_temp 表结构成功')
 
-                            # 删除原表 keywords
-                            connection.execute(text("DROP TABLE keywords"))
-                            logging.info('删除原表 keywords 成功')
+                        # 保留现有关键字 ID
+                        result = connection.execute(text("""
+                            INSERT INTO keywords_temp (id, rule_id, keyword, is_regex, is_blacklist)
+                            SELECT id, rule_id, keyword, is_regex, is_blacklist FROM keywords
+                        """))
+                        logging.info(f'复制数据到 keywords_temp 成功，影响行数: {result.rowcount}')
 
-                            # 4将临时表重命名为 keywords
-                            connection.execute(text("ALTER TABLE keywords_temp RENAME TO keywords"))
-                            logging.info('重命名 keywords_temp 为 keywords 成功')
+                        # 删除原表 keywords
+                        connection.execute(text("DROP TABLE keywords"))
+                        logging.info('删除原表 keywords 成功')
 
-                            # 添加唯一约束
-                            connection.execute(text("""
-                                CREATE UNIQUE INDEX unique_rule_keyword_is_regex_is_blacklist 
-                                ON keywords (rule_id, keyword, is_regex, is_blacklist)
-                            """))
-                            logging.info('添加唯一约束 unique_rule_keyword_is_regex_is_blacklist 成功')
+                        # 4将临时表重命名为 keywords
+                        connection.execute(text("ALTER TABLE keywords_temp RENAME TO keywords"))
+                        logging.info('重命名 keywords_temp 为 keywords 成功')
 
-                            logging.info('成功更新 keywords 表结构和唯一约束')
-                    except Exception as e:
-                        logging.error(f'更新 keywords 表结构时出错: {str(e)}')
-                else:
-                    logging.info('唯一约束已存在，跳过创建')
+                        # 添加唯一约束
+                        connection.execute(text("""
+                            CREATE UNIQUE INDEX unique_rule_keyword_is_regex_is_blacklist
+                            ON keywords (rule_id, keyword, is_regex, is_blacklist)
+                        """))
+                        logging.info('添加唯一约束 unique_rule_keyword_is_regex_is_blacklist 成功')
 
-        except Exception as e:
-            logging.error(f'更新唯一约束时出错: {str(e)}')
+                        logging.info('成功更新 keywords 表结构和唯一约束')
+                except Exception as e:
+                    logging.error(f'更新 keywords 表结构时出错: {str(e)}')
+            else:
+                logging.info('唯一约束已存在，跳过创建')
+
+    except Exception as e:
+        logging.error(f'更新唯一约束时出错: {str(e)}')
 
 
 def init_db():

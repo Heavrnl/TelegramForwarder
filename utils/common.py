@@ -6,6 +6,7 @@ from telethon.tl.types import ChannelParticipantsAdmins
 from ai import get_ai_provider
 from enums.enums import ForwardMode
 from models.models import Chat, ForwardRule
+from utils.rule_selection import selected_rule
 import re
 import telethon
 from utils.auto_delete import respond_and_delete,reply_and_delete,async_delete_user_message
@@ -66,34 +67,19 @@ async def get_current_rule(session, event):
             Chat.telegram_chat_id == str(current_chat.id)
         ).first()
 
-        if not current_chat_db or not current_chat_db.current_add_id:
+        if not current_chat_db:
             logger.info('未找到当前聊天或未选择源聊天')
             await reply_and_delete(event,'请先使用 /switch 选择一个源聊天')
             return None
 
-        logger.info(f'当前选中的源聊天ID: {current_chat_db.current_add_id}')
-
-        # 查找对应的规则
-        source_chat = session.query(Chat).filter(
-            Chat.telegram_chat_id == current_chat_db.current_add_id
-        ).first()
-
-        if source_chat:
-            logger.info(f'找到源聊天: {source_chat.name}')
-        else:
-            logger.error('未找到源聊天')
-            return None
-
-        rule = session.query(ForwardRule).filter(
-            ForwardRule.source_chat_id == source_chat.id,
-            ForwardRule.target_chat_id == current_chat_db.id
-        ).first()
+        rule = selected_rule(session, current_chat_db)
 
         if not rule:
             logger.info('未找到对应的转发规则')
-            await reply_and_delete(event,'转发规则不存在')
+            await reply_and_delete(event,'请先使用 /switch 选择一条转发规则')
             return None
 
+        source_chat = rule.source_chat
         logger.info(f'找到转发规则 ID: {rule.id}')
         return rule, source_chat
     except Exception as e:
@@ -348,6 +334,7 @@ async def check_and_clean_chats(session, rule=None):
                     
                     for other_chat in chats_using_this:
                         other_chat.current_add_id = None
+                        other_chat.current_rule_id = None
                         logger.info(f'清除聊天 {other_chat.name} 的current_add_id设置')
                     
                     # 删除聊天记录

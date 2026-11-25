@@ -9,6 +9,7 @@ from telethon import TelegramClient, errors
 from ai import get_ai_provider
 import traceback
 from utils.constants import DEFAULT_TIMEZONE,DEFAULT_AI_MODEL,DEFAULT_SUMMARY_PROMPT
+from utils.topics import matches_topic, topic_reply_id, forum_peer
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,10 @@ class SummaryScheduler:
             try:
                 source_chat_id = int(rule.source_chat.telegram_chat_id)
                 target_chat_id = int(rule.target_chat.telegram_chat_id)
+                if rule.source_topic_id:
+                    source_chat_id = forum_peer(source_chat_id)
+                if rule.target_topic_id:
+                    target_chat_id = forum_peer(target_chat_id)
 
                 messages = []
 
@@ -166,7 +171,8 @@ class SummaryScheduler:
                             limit=self.batch_size,
                             offset_date=end_time,
                             offset_id=current_offset,
-                            reverse=False
+                            reverse=False,
+                            **({'reply_to': rule.source_topic_id} if rule.source_topic_id > 1 else {})
                         )
 
                         if not messages_batch:
@@ -186,7 +192,8 @@ class SummaryScheduler:
                                 continue
 
                             # 如果消息在有效时间范围内，添加到批次
-                            if start_time <= msg_time <= end_time and message.text:
+                            if (start_time <= msg_time <= end_time and message.text
+                                    and matches_topic(message, rule.source_topic_id, is_forum=bool(rule.source_topic_id))):
                                 batch.append(message.text)
 
                             # 如果遇到早于开始时间的消息，标记退出
@@ -234,7 +241,7 @@ class SummaryScheduler:
 
                 if summary:
                     duration_hours = round((end_time - start_time).total_seconds() / 3600)
-                    header = f"📋 {rule.source_chat.name} - {duration_hours}小时消息总结\n"
+                    header = f"📋 {rule.source_label} - {duration_hours}小时消息总结\n"
                     header += f"🕐 时间范围: {start_time.strftime('%Y-%m-%d %H:%M')} - {end_time.strftime('%Y-%m-%d %H:%M')}\n"
                     header += f"📊 消息数量: {len(messages)} 条\n\n"
 
@@ -259,13 +266,15 @@ class SummaryScheduler:
                                     current_message = await self.bot_client.send_message(
                                         target_chat_id,
                                         message_to_send,
-                                        parse_mode='markdown'
+                                        parse_mode='markdown',
+                                        reply_to=topic_reply_id(rule.target_topic_id)
                                     )
                                 else:
                                     # Fallback to plain text
                                     current_message = await self.bot_client.send_message(
                                         target_chat_id,
-                                        message_to_send
+                                        message_to_send,
+                                        reply_to=topic_reply_id(rule.target_topic_id)
                                     )
                                 break  # Success, exit retry loop
 

@@ -13,12 +13,24 @@ from utils.constants import RSS_HOST, RSS_PORT
 from utils.auto_delete import respond_and_delete,reply_and_delete
 from utils.common import check_and_clean_chats
 from handlers.button.button_helpers import create_sync_rule_buttons,create_other_settings_buttons
+from utils.rule_selection import selected_rule, select_rule
 
 logger = logging.getLogger(__name__)
 
 
 async def callback_switch(event, rule_id, session, message, data):
-    """处理切换源聊天的回调"""
+    """兼容旧消息的 switch:源聊天ID 按钮，存在多个规则时重新选择。"""
+    chat = await event.get_chat()
+    target = session.query(Chat).filter_by(telegram_chat_id=str(chat.id)).first()
+    rules = (session.query(ForwardRule).join(Chat, ForwardRule.source_chat_id == Chat.id)
+             .filter(ForwardRule.target_chat_id == target.id, Chat.telegram_chat_id == rule_id).all()) if target else []
+    if len(rules) == 1:
+        return await callback_switch_rule(event, str(rules[0].id), session, message, data)
+    await event.answer('请使用 /switch 重新选择具体规则')
+
+
+async def callback_switch_rule(event, rule_id, session, message, data):
+    """按规则 ID 切换，避免同一源群多个话题之间混淆。"""
     # 获取当前聊天
     current_chat = await event.get_chat()
     current_chat_db = session.query(Chat).filter(
@@ -29,13 +41,12 @@ async def callback_switch(event, rule_id, session, message, data):
         await event.answer('当前聊天不存在')
         return
 
-    # 如果已经选中了这个聊天，就不做任何操作
-    if current_chat_db.current_add_id == rule_id:
-        await event.answer('已经选中该聊天')
+    selected = session.query(ForwardRule).filter_by(id=int(rule_id), target_chat_id=current_chat_db.id).first()
+    if not selected:
+        await event.answer('规则不存在或不属于当前聊天')
         return
 
-    # 更新当前选中的源聊天
-    current_chat_db.current_add_id = rule_id  # 这里的 rule_id 实际上是源聊天的 telegram_chat_id
+    select_rule(current_chat_db, selected)
     session.commit()
 
     # 更新按钮显示
@@ -46,9 +57,9 @@ async def callback_switch(event, rule_id, session, message, data):
     buttons = []
     for rule in rules:
         source_chat = rule.source_chat
-        current = source_chat.telegram_chat_id == rule_id
-        button_text = f'{"✓ " if current else ""}来自: {source_chat.name}'
-        callback_data = f"switch:{source_chat.telegram_chat_id}"
+        current = rule.id == selected.id
+        button_text = f'{"✓ " if current else ""}#{rule.id} {rule.route_label}'
+        callback_data = f"switch_rule:{rule.id}"
         buttons.append([Button.inline(button_text, callback_data)])
 
     try:
@@ -57,10 +68,7 @@ async def callback_switch(event, rule_id, session, message, data):
         if 'message was not modified' not in str(e).lower():
             raise  # 如果是其他错误就继续抛出
 
-    source_chat = session.query(Chat).filter(
-        Chat.telegram_chat_id == rule_id
-    ).first()
-    await event.answer(f'已切换到: {source_chat.name if source_chat else "未知聊天"}')
+    await event.answer(f'已切换到规则 #{selected.id}')
 
 async def callback_settings(event, rule_id, session, message, data):
     """处理显示设置的回调"""
@@ -86,7 +94,7 @@ async def callback_settings(event, rule_id, session, message, data):
     buttons = []
     for rule in rules:
         source_chat = rule.source_chat
-        button_text = f'{source_chat.name}'
+        button_text = f'#{rule.id} {rule.route_label}'
         callback_data = f"rule_settings:{rule.id}"
         buttons.append([Button.inline(button_text, callback_data)])
 
@@ -114,6 +122,8 @@ async def callback_delete(event, rule_id, session, message, data):
         ).delete()
 
         # 删除规则
+        session.query(Chat).filter(Chat.current_rule_id == rule.id).update(
+            {Chat.current_rule_id: None, Chat.current_add_id: None}, synchronize_session='fetch')
         session.delete(rule)
         
         # 提交规则删除的更改
@@ -165,18 +175,12 @@ async def callback_page(event, rule_id, session, message, data):
             Chat.telegram_chat_id == str(current_chat.id)
         ).first()
 
-        if not current_chat_db or not current_chat_db.current_add_id:
+        rule = selected_rule(session, current_chat_db) if current_chat_db else None
+        if not rule:
             await event.answer('请先选择一个源聊天')
             return
 
-        source_chat = session.query(Chat).filter(
-            Chat.telegram_chat_id == current_chat_db.current_add_id
-        ).first()
-
-        rule = session.query(ForwardRule).filter(
-            ForwardRule.source_chat_id == source_chat.id,
-            ForwardRule.target_chat_id == current_chat_db.id
-        ).first()
+        source_chat = rule.source_chat
 
         if command == 'keyword':
             # 获取关键字列表
@@ -240,12 +244,13 @@ async def callback_toggle_current(event, rule_id, session, message, data):
     source_chat = rule.source_chat
 
     # 检查是否已经是当前选中的规则
-    if target_chat.current_add_id == source_chat.telegram_chat_id:
+    current_rule = selected_rule(session, target_chat)
+    if current_rule is not None and current_rule.id == rule.id:
         await event.answer('已经是当前选中的规则')
         return
 
     # 更新当前选中的源聊天
-    target_chat.current_add_id = source_chat.telegram_chat_id
+    select_rule(target_chat, rule)
     session.commit()
 
     # 更新按钮显示
@@ -445,8 +450,8 @@ async def callback_page_rule(event, page_str, session, message, data):
             
             rule_desc = (
                 f'<b>ID: {rule.id}</b>\n'
-                f'<blockquote>来源: {source_chat.name} ({source_chat.telegram_chat_id})\n'
-                f'目标: {target_chat.name} ({target_chat.telegram_chat_id})\n'
+                f'<blockquote>来源: {rule.source_label} ({source_chat.telegram_chat_id})\n'
+                f'目标: {rule.target_label} ({target_chat.telegram_chat_id})\n'
                 '</blockquote>'
             )
             message_parts.append(rule_desc)
@@ -629,6 +634,7 @@ async def handle_callback(event):
 CALLBACK_HANDLERS = {
     'toggle_current': callback_toggle_current,
     'switch': callback_switch,
+    'switch_rule': callback_switch_rule,
     'settings': callback_settings,
     'delete': callback_delete,
     'page': callback_page,

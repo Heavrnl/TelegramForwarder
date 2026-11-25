@@ -10,6 +10,7 @@ from telethon.tl.types import ChannelParticipantsAdmins
 from managers.state_manager import state_manager
 from telethon.tl import types
 from filters.process import process_forward_rule
+from utils.topics import matches_topic
 # 加载环境变量
 load_dotenv()
 
@@ -117,7 +118,7 @@ async def handle_user_message(event, user_client, bot_client):
     try:
         # 查询源聊天
         source_chat = session.query(Chat).filter(
-            Chat.telegram_chat_id == str(chat_id)
+            Chat.telegram_chat_id == str(chat.id)
         ).first()
         
         if not source_chat:
@@ -147,6 +148,8 @@ async def handle_user_message(event, user_client, bot_client):
         # 处理每条转发规则
         for rule in rules:
             target_chat = rule.target_chat
+            if not matches_topic(event.message, rule.source_topic_id, getattr(chat, 'forum', False)):
+                continue
             if not rule.enable_rule:
                 logger.info(f'规则 {rule.id} 未启用')
                 continue

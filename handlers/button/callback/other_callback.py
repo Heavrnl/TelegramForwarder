@@ -111,7 +111,7 @@ async def create_copy_rule_buttons(rule_id, page=0):
             target_chat = rule.target_chat
 
             # 创建按钮文本
-            button_text = f"{rule.id} {source_chat.name}->{target_chat.name}"
+            button_text = f"{rule.id} {rule.route_label}"
 
             # 创建回调数据：perform_copy_rule:源规则ID:目标规则ID
             callback_data = f"perform_copy_rule:{source_rule_id}:{rule.id}"
@@ -313,7 +313,7 @@ async def callback_perform_copy_rule(event, rule_id_data, session, message, data
         inspector = inspect(ForwardRule)
         for column in inspector.columns:
             column_name = column.key
-            if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_chat', 'target_chat',
+            if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_topic_id', 'target_topic_id', 'source_chat', 'target_chat',
                                   'keywords', 'replace_rules', 'media_types']:
                 # 获取源规则的值并设置到目标规则
                 value = getattr(source_rule, column_name)
@@ -619,7 +619,7 @@ async def create_rule_selection_buttons(rule_id, page=0, callback_action="perfor
             target_chat = rule.target_chat
 
             # 创建按钮文本
-            button_text = f"{rule.id} {source_chat.name}->{target_chat.name}"
+            button_text = f"{rule.id} {rule.route_label}"
 
             # 创建回调数据：callback_action:源规则ID:目标规则ID
             callback_data = f"{callback_action}:{source_rule_id}:{rule.id}"
@@ -1074,6 +1074,8 @@ async def callback_perform_delete_rule(event, rule_id_data, session, message, da
             session.query(RuleSync).filter(RuleSync.sync_rule_id == rule.id).delete()
 
         # 删除规则
+        session.query(Chat).filter(Chat.current_rule_id == rule.id).update(
+            {Chat.current_rule_id: None, Chat.current_add_id: None}, synchronize_session='fetch')
         session.delete(rule)
 
         # 提交规则删除的更改

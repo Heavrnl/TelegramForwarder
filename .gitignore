@@ -3,6 +3,7 @@
 
 # 数据库文件
 *.db
+*.db.before-topics-*.bak
 
 # Python
 __pycache__/
