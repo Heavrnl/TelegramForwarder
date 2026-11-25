@@ -19,29 +19,27 @@ import models.models as models
 from utils.auto_delete import respond_and_delete,reply_and_delete,async_delete_user_message
 from utils.common import get_bot_client
 from handlers.button.settings_manager import create_settings_text, create_buttons
+from utils.topics import parse_bind_args, validate_topic, creates_route_cycle, message_topic_id
+from utils.rule_selection import selected_rule, select_rule
 
 logger = logging.getLogger(__name__)
 
+
+async def handle_topic_command(event):
+    chat = await event.get_chat()
+    if not getattr(chat, 'forum', False):
+        await reply_and_delete(event, '当前聊天未开启话题功能。请在话题群内使用 /topic。')
+        return
+    topic_id = message_topic_id(event.message, is_forum=True)
+    await reply_and_delete(event, f'当前话题 ID: {topic_id}\n绑定时可使用 --source-topic {topic_id} 或 --target-topic {topic_id}')
+
 async def handle_bind_command(event, client, parts):
     """处理 bind 命令"""
-    # 使用shlex解析命令
-    message_text = event.message.text
     try:
-        # 去掉命令前缀，获取原始参数字符串
-        if ' ' in message_text:
-            command, args_str = message_text.split(' ', 1)
-            args = shlex.split(args_str)
-            if len(args) >= 1:
-                source_target = args[0]
-                # 检查是否有第二个参数（目标聊天）
-                target_chat_input = args[1] if len(args) >= 2 else None
-            else:
-                raise ValueError("参数不足")
-        else:
-            raise ValueError("参数不足")
-    except ValueError:
+        source_target, target_chat_input, source_topic_id, target_topic_id = parse_bind_args(event.message.text)
+    except ValueError as error:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event,'用法: /bind <源聊天链接或名称> [目标聊天链接或名称]\n例如:\n/bind https://t.me/channel_name\n/bind "频道 名称"\n/bind https://t.me/source_channel https://t.me/target_channel\n/bind "源频道名称" "目标频道名称"')
+        await reply_and_delete(event, f'{error}\n用法: /bind <源聊天链接或名称> [目标聊天链接或名称] [--source-topic ID] [--target-topic ID]\n例如:\n/bind "源群" --source-topic 123\n0 = 全部源话题/默认目标位置，1 = General。省略目标聊天时使用当前聊天；目标为当前群且未指定 --target-topic 时，自动使用命令所在话题。')
         return
 
     # 检查是否是链接
@@ -91,15 +89,19 @@ async def handle_bind_command(event, client, parts):
                 # 使用当前聊天作为目标
                 target_chat_entity = current_chat
 
-            # # 检查是否在绑定自己
-            # if str(source_chat_entity.id) == str(target_chat_entity.id):
-            #     await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            #     await reply_and_delete(event,'⚠️ 不能将频道/群组绑定到自己')
-            #     return
+            if target_topic_id is None:
+                target_topic_id = (
+                    message_topic_id(event.message, is_forum=True)
+                    if str(target_chat_entity.id) == str(current_chat.id) and getattr(current_chat, 'forum', False)
+                    else 0
+                )
 
-        except ValueError:
+            await validate_topic(user_client, source_chat_entity, source_topic_id)
+            await validate_topic(user_client, target_chat_entity, target_topic_id, destination=True)
+
+        except ValueError as error:
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-            await reply_and_delete(event,'无法获取聊天信息，请确保链接/名称正确且账号已加入该群组/频道')
+            await reply_and_delete(event, f'无法绑定: {error}\n请检查聊天、话题 ID，以及账号是否已加入群组。')
             return
         except Exception as e:
             logger.error(f'获取聊天信息时出错: {str(e)}')
@@ -136,29 +138,42 @@ async def handle_bind_command(event, client, parts):
                 session.add(target_chat_db)
                 session.flush()
 
-            # 如果当前没有选中的源聊天，就设置为新绑定的聊天
-            if not target_chat_db.current_add_id:
-                target_chat_db.current_add_id = str(source_chat_entity.id)
+            # Topic routes must not feed back into themselves (including indirect cycles).
+            existing_rules = session.query(ForwardRule).all()
+            has_topics = source_topic_id or target_topic_id or any(r.source_topic_id or r.target_topic_id for r in existing_rules)
+            if has_topics and creates_route_cycle(
+                existing_rules, source_chat_db.id, source_topic_id,
+                target_chat_db.id, target_topic_id
+            ):
+                session.rollback()
+                await reply_and_delete(event, '无法绑定：该话题映射会形成转发循环，请调整源或目标话题。')
+                return
 
             # 创建转发规则
             rule = ForwardRule(
                 source_chat_id=source_chat_db.id,
-                target_chat_id=target_chat_db.id
+                target_chat_id=target_chat_db.id,
+                source_topic_id=source_topic_id,
+                target_topic_id=target_topic_id
             )
             
             # 如果是绑定自己，则默认使用白名单模式
-            if str(source_chat_entity.id) == str(target_chat_entity.id):
+            if str(source_chat_entity.id) == str(target_chat_entity.id) and not (source_topic_id or target_topic_id):
                 rule.forward_mode = ForwardMode.WHITELIST
                 rule.add_mode = AddMode.WHITELIST
                 
             session.add(rule)
+            session.flush()
+            if selected_rule(session, target_chat_db) is None:
+                select_rule(target_chat_db, rule)
             session.commit()
 
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
             await reply_and_delete(event,
                 f'已设置转发规则:\n'
-                f'源聊天: {source_chat_db.name} ({source_chat_db.telegram_chat_id})\n'
-                f'目标聊天: {target_chat_db.name} ({target_chat_db.telegram_chat_id})\n'
+                f'规则 ID: {rule.id}\n'
+                f'源聊天: {rule.source_label} ({source_chat_db.telegram_chat_id})\n'
+                f'目标聊天: {rule.target_label} ({target_chat_db.telegram_chat_id})\n'
                 f'请使用 /add 或 /add_regex 添加关键字',
                 buttons=[Button.inline("⚙️ 打开设置", f"rule_settings:{rule.id}")]
             )
@@ -168,8 +183,8 @@ async def handle_bind_command(event, client, parts):
             await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
             await reply_and_delete(event,
                 f'已存在相同的转发规则:\n'
-                f'源聊天: {source_chat_db.name}\n'
-                f'目标聊天: {target_chat_db.name}\n'
+                f'源话题 ID: {source_topic_id}\n'
+                f'目标话题 ID: {target_topic_id}\n'
                 f'如需修改请使用 /settings 命令'
             )
             return
@@ -260,7 +275,7 @@ async def handle_settings_command(event, command, parts):
         buttons = []
         for rule in rules:
             source_chat = rule.source_chat  # 显示源聊天
-            button_text = f'{source_chat.name}'
+            button_text = f'#{rule.id} {rule.route_label}'
             callback_data = f"rule_settings:{rule.id}"
             buttons.append([Button.inline(button_text, callback_data)])
         
@@ -304,14 +319,15 @@ async def handle_switch_command(event):
             await reply_and_delete(event,'当前聊天没有任何转发规则')
             return
 
+        current_rule = selected_rule(session, current_chat_db)
         # 创建规则选择按钮
         buttons = []
         for rule in rules:
             source_chat = rule.source_chat
             # 标记当前选中的规则
-            current = current_chat_db.current_add_id == source_chat.telegram_chat_id
-            button_text = f'{"✓ " if current else ""}来自: {source_chat.name}'
-            callback_data = f"switch:{source_chat.telegram_chat_id}"
+            current = current_rule is not None and current_rule.id == rule.id
+            button_text = f'{"✓ " if current else ""}#{rule.id} {rule.route_label}'
+            callback_data = f"switch_rule:{rule.id}"
             buttons.append([Button.inline(button_text, callback_data)])
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
         await reply_and_delete(event,'请选择要管理的转发规则:', buttons=buttons)
@@ -785,8 +801,10 @@ async def handle_help_command(event, command):
         "/help(/h) - 显示此帮助信息\n\n"
 
         "**绑定和设置**\n"
-        "/bind(/b) <源聊天链接或名称> [目标聊天链接或名称] - 绑定源聊天\n"
+        "/bind(/b) <源聊天链接或名称> [目标聊天链接或名称] [--source-topic ID] [--target-topic ID]\n"
+        "/topic - 查看当前话题 ID（1 为 General）\n"
         "/settings(/s) [规则ID] - 管理转发规则\n"
+        "/switch(/sw) - 选择当前操作的具体规则\n"
         "/changelog(/cl) - 查看更新日志\n\n"
 
         "**转发规则管理**\n"
@@ -1669,7 +1687,7 @@ async def handle_copy_rule_command(event, command):
         inspector = inspect(ForwardRule)
         for column in inspector.columns:
             column_name = column.key
-            if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_chat', 'target_chat',
+            if column_name not in ['id', 'source_chat_id', 'target_chat_id', 'source_topic_id', 'target_topic_id', 'source_chat', 'target_chat',
                                       'keywords', 'replace_rules', 'media_types']:
                 # 获取源规则的值并设置到目标规则
                 value = getattr(source_rule, column_name)
@@ -2069,8 +2087,8 @@ async def handle_list_rule_command(event, command, parts):
             # 构建规则描述
             rule_desc = (
                 f'<b>ID: {rule.id}</b>\n'
-                f'<blockquote>来源: {source_chat.name} ({source_chat.telegram_chat_id})\n'
-                f'目标: {target_chat.name} ({target_chat.telegram_chat_id})\n'
+                f'<blockquote>来源: {rule.source_label} ({source_chat.telegram_chat_id})\n'
+                f'目标: {rule.target_label} ({target_chat.telegram_chat_id})\n'
                 '</blockquote>'
             )
             message_parts.append(rule_desc)
@@ -2136,6 +2154,8 @@ async def handle_delete_rule_command(event, command, parts):
 
             try:
                 # 删除规则（关联的替换规则、关键字和媒体类型会自动删除）
+                session.query(Chat).filter(Chat.current_rule_id == rule.id).update(
+                    {Chat.current_rule_id: None, Chat.current_add_id: None}, synchronize_session='fetch')
                 session.delete(rule)
 
                 # 尝试从RSS服务删除规则数据

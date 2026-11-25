@@ -3,6 +3,7 @@ import asyncio
 from telethon import Button
 from filters.base_filter import BaseFilter
 from utils.common import get_main_module
+from utils.topics import forum_peer
 import traceback
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ class ReplyFilter(BaseFilter):
             rule = context.rule
             target_chat = rule.target_chat
             target_chat_id = int(target_chat.telegram_chat_id)
+            if rule.target_topic_id:
+                target_chat_id = forum_peer(target_chat_id)
             
             # 获取已转发的第一条消息ID
             first_forwarded_msg = context.forwarded_messages[0]
@@ -69,4 +72,4 @@ class ReplyFilter(BaseFilter):
             logger.error(f"ReplyFilter处理消息时出错: {str(e)}")
 
             logger.error(traceback.format_exc())
-            return True 
+            return True

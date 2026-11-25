@@ -569,7 +569,7 @@ async def create_sync_rule_buttons(rule_id, page=0):
             is_synced = rule.id in synced_rule_ids
             
             # 创建按钮文本
-            button_text = f"{'✅ ' if is_synced else ''}{rule.id} {source_chat.name}->{target_chat.name}"
+            button_text = f"{'✅ ' if is_synced else ''}{rule.id} {rule.route_label}"
             
             # 创建回调数据：toggle_rule_sync:当前规则ID:目标规则ID:当前页码
             callback_data = f"toggle_rule_sync:{rule_id}:{rule.id}:{page}"

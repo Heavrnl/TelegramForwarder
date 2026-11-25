@@ -3,6 +3,7 @@ import os
 from filters.base_filter import BaseFilter
 from enums.enums import PreviewMode
 from telethon.errors import FloodWaitError
+from utils.topics import topic_reply_id, forum_peer
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ class SenderFilter(BaseFilter):
         # 获取目标聊天信息
         target_chat = rule.target_chat
         target_chat_id = int(target_chat.telegram_chat_id)
+        if rule.target_topic_id:
+            target_chat_id = int(f'-100{forum_peer(target_chat_id).channel_id}')
         
         # 预先获取目标聊天实体
         try:
@@ -165,6 +168,7 @@ class SenderFilter(BaseFilter):
                     caption=caption_text,
                     parse_mode=parse_mode,
                     buttons=context.buttons,
+                    reply_to=topic_reply_id(rule.target_topic_id),
                     link_preview={
                         PreviewMode.ON: True,
                         PreviewMode.OFF: False,
@@ -219,7 +223,8 @@ class SenderFilter(BaseFilter):
                 text_to_send,
                 parse_mode=parse_mode,
                 link_preview=True,
-                buttons=context.buttons
+                buttons=context.buttons,
+                reply_to=topic_reply_id(rule.target_topic_id)
             )
             logger.info(f'媒体文件超过大小限制，仅转发文本')
             return
@@ -244,6 +249,7 @@ class SenderFilter(BaseFilter):
                     caption=caption,
                     parse_mode=parse_mode,
                     buttons=context.buttons,
+                    reply_to=topic_reply_id(rule.target_topic_id),
                     link_preview={
                         PreviewMode.ON: True,
                         PreviewMode.OFF: False,
@@ -289,6 +295,7 @@ class SenderFilter(BaseFilter):
             str(message_text),
             parse_mode=parse_mode,
             link_preview=link_preview,
-            buttons=context.buttons
+            buttons=context.buttons,
+            reply_to=topic_reply_id(rule.target_topic_id)
         )
-        logger.info(f'{"带预览的" if link_preview else "无预览的"}文本消息已发送') 
+        logger.info(f'{"带预览的" if link_preview else "无预览的"}文本消息已发送')

@@ -5,7 +5,8 @@ from utils.common import check_keywords
 from utils.common import get_main_module
 from ai import get_ai_provider
 from utils.constants import DEFAULT_AI_MODEL,DEFAULT_SUMMARY_PROMPT,DEFAULT_AI_PROMPT
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from utils.topics import matches_topic, forum_peer
 import asyncio
 import re
 import base64
@@ -224,23 +225,23 @@ async def _ai_handle(message: str, rule, image_files=None) -> str:
                 # 处理源聊天的消息获取
                 if source_context_match:
                     count = int(source_context_match.group(1))
-                    chat_history = await _get_chat_messages(client, source_chat_id, count=count)
+                    chat_history = await _get_chat_messages(client, source_chat_id, count=count, topic_id=rule.source_topic_id)
                     prompt = prompt.replace(source_context_match.group(0), chat_history)
                     
                 if source_time_match:
                     minutes = int(source_time_match.group(1))
-                    chat_history = await _get_chat_messages(client, source_chat_id, minutes=minutes)
+                    chat_history = await _get_chat_messages(client, source_chat_id, minutes=minutes, topic_id=rule.source_topic_id)
                     prompt = prompt.replace(source_time_match.group(0), chat_history)
                 
                 # 处理目标聊天的消息获取
                 if target_context_match:
                     count = int(target_context_match.group(1))
-                    chat_history = await _get_chat_messages(client, target_chat_id, count=count)
+                    chat_history = await _get_chat_messages(client, target_chat_id, count=count, topic_id=rule.target_topic_id)
                     prompt = prompt.replace(target_context_match.group(0), chat_history)
                     
                 if target_time_match:
                     minutes = int(target_time_match.group(1))
-                    chat_history = await _get_chat_messages(client, target_chat_id, minutes=minutes)
+                    chat_history = await _get_chat_messages(client, target_chat_id, minutes=minutes, topic_id=rule.target_topic_id)
                     prompt = prompt.replace(target_time_match.group(0), chat_history)
             
             # 替换消息占位符
@@ -300,7 +301,7 @@ async def _ai_handle(message: str, rule, image_files=None) -> str:
         return message
 
 
-async def _get_chat_messages(client, chat_id, minutes=None, count=None, delay_seconds: float = 0.5) -> str:
+async def _get_chat_messages(client, chat_id, minutes=None, count=None, delay_seconds: float = 0.5, topic_id=0) -> str:
     """获取聊天记录
     
     Args:
@@ -315,40 +316,23 @@ async def _get_chat_messages(client, chat_id, minutes=None, count=None, delay_se
     """
     try:
         messages = []
-        limit = count if count else 500  # 设置一个合理的默认值
-        processed_count = 0
-        
-        if minutes:
-            # 计算时间范围
-            
-            end_time = datetime.now()
-            start_time = end_time - timedelta(minutes=minutes)
-            
-            # 获取指定时间范围内的消息
-            async for message in client.iter_messages(
-                chat_id,
-                limit=limit,
-                offset_date=end_time,
-                reverse=True
-            ):
-                if message.date < start_time:
-                    break
-                if message.text:
-                    messages.append(message.text)
-                    processed_count += 1
-                    if processed_count % 20 == 0:  # 每处理20条消息休息一次
-                        await asyncio.sleep(delay_seconds)
-        else:
-            # 获取指定数量的最新消息
-            async for message in client.iter_messages(
-                chat_id,
-                limit=count
-            ):
-                if message.text:
-                    messages.append(message.text)
-                    processed_count += 1
-                    if processed_count % 20 == 0:  # 每处理20条消息休息一次
-                        await asyncio.sleep(delay_seconds)
+        scope = {'reply_to': topic_id} if topic_id > 1 else {}
+        if topic_id:
+            chat_id = forum_peer(chat_id)
+        end_time = datetime.now(timezone.utc)
+        start_time = end_time - timedelta(minutes=minutes) if minutes else None
+        # General has no root thread to query: scan the group and filter its messages.
+        limit = None if topic_id == 1 else (count if count else 500)
+        async for message in client.iter_messages(chat_id, limit=limit, offset_date=end_time, **scope):
+            if start_time and message.date < start_time:
+                break
+            if not matches_topic(message, topic_id, is_forum=bool(topic_id)) or not message.text:
+                continue
+            messages.append(message.text)
+            if len(messages) % 20 == 0:
+                await asyncio.sleep(delay_seconds)
+            if len(messages) >= (count or 500):
+                break
                 
         return "\n---\n".join(messages) if messages else ""
         

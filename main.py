@@ -177,7 +177,11 @@ async def register_bot_commands(bot):
         # 绑定和设置
         BotCommand(
             command='bind',
-            description='绑定源聊天'
+            description='绑定源聊天或话题'
+        ),
+        BotCommand(
+            command='topic',
+            description='查看当前话题 ID'
         ),
         BotCommand(
             command='settings',

@@ -448,7 +448,7 @@ async def create_settings_text(rule):
     text = (
         "📋 管理转发规则\n\n"
         f"规则ID: `{rule.id}`\n" 
-        f"{rule.source_chat.name} --> {rule.target_chat.name}"
+        f"{rule.route_label}"
     )
     return text
 
@@ -460,11 +460,12 @@ async def create_buttons(rule):
     session = get_session()
     try:
         target_chat = rule.target_chat
-        current_add_id = target_chat.current_add_id
+        from utils.rule_selection import selected_rule
+        current_rule = selected_rule(session, target_chat)
         source_chat = rule.source_chat
 
         # 添加规则切换按钮
-        is_current = current_add_id == source_chat.telegram_chat_id
+        is_current = current_rule is not None and current_rule.id == rule.id
         buttons.append([
             Button.inline(
                 f"{'✅ ' if is_current else ''}应用当前规则",
