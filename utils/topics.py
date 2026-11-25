@@ -48,9 +48,9 @@ def endpoint_label(chat, topic_id, source=False):
 
 
 def parse_bind_args(text):
-    """Keep quoted chat names, and accept flags before or after chat arguments."""
+    """Keep quoted names; None distinguishes an omitted target topic from explicit 0."""
     args = shlex.split(text)[1:]
-    chats, topics = [], {'--source-topic': 0, '--target-topic': 0}
+    chats, topics = [], {'--source-topic': 0, '--target-topic': None}
     seen = set()
     index = 0
     while index < len(args):

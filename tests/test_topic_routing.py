@@ -54,7 +54,8 @@ class TopicTests(unittest.TestCase):
         self.assertEqual(parse_bind_args('/bind "源 群" "目标 群" --source-topic 17 --target-topic 12'),
                          ('源 群', '目标 群', 17, 12))
         self.assertEqual(parse_bind_args('/b@bot --target-topic 12 "源 群"'), ('源 群', None, 0, 12))
-        self.assertEqual(parse_bind_args('/bind https://t.me/source'), ('https://t.me/source', None, 0, 0))
+        self.assertEqual(parse_bind_args('/bind https://t.me/source'), ('https://t.me/source', None, 0, None))
+        self.assertEqual(parse_bind_args('/bind Source --target-topic 0'), ('Source', None, 0, 0))
         for bad in ('/bind', '/bind a b c', '/bind a --source-topic', '/bind a --source-topic -1',
                     '/bind a --target-topic x', '/bind a --topic 2', '/bind a --source-topic 2 --source-topic 3',
                     '/bind a --source-topic 2147483648', '/bind "unclosed'):

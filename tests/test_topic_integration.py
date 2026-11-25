@@ -41,6 +41,9 @@ class RuleFlowTests(unittest.IsolatedAsyncioTestCase):
             self.addCleanup(patcher.stop)
 
     async def bind(self, source_topic, target_topic):
+        await self.bind_command(f'/bind Source Target --source-topic {source_topic} --target-topic {target_topic}')
+
+    async def bind_command(self, text):
         source, target = self.source, self.target
 
         class Client:
@@ -48,16 +51,73 @@ class RuleFlowTests(unittest.IsolatedAsyncioTestCase):
                 return types.InputPeerChannel(peer.channel_id, 123)
 
             async def iter_dialogs(self):
-                for entity in (source, target):
+                for entity in (source, target, NS(id=333, title='Other', forum=True)):
                     yield NS(name=entity.title, entity=entity)
 
             async def __call__(self, request):
                 return NS(topics=[NS(id=i, title=f'Topic {i}', closed=False, hidden=False)
                                   for i in (1, 12, 13, 17, 18)])
 
-        self.event.message.text = f'/bind Source Target --source-topic {source_topic} --target-topic {target_topic}'
+        self.event.message.text = text
         with patch.object(commands, 'get_main_module', AsyncMock(return_value=NS(user_client=Client()))):
             await commands.handle_bind_command(self.event, None, [])
+
+    async def test_bind_uses_current_topic_when_destination_is_omitted(self):
+        self.event.message.reply_to = message(12).reply_to
+        await self.bind_command('/bind Source --source-topic 17')
+        with self.sessions() as session:
+            rule = session.query(ForwardRule).one()
+            self.assertEqual((rule.source_topic_id, rule.target_topic_id), (17, 12))
+
+    async def test_bind_explicit_current_group_uses_topic_of_nested_reply(self):
+        self.event.message.reply_to = message(13, reply=99).reply_to
+        await self.bind_command('/bind Source Target --source-topic 17')
+        with self.sessions() as session:
+            self.assertEqual(session.query(ForwardRule).one().target_topic_id, 13)
+
+    async def test_bind_explicit_topic_including_zero_overrides_current_topic(self):
+        self.event.message.reply_to = message(12).reply_to
+        for source_topic, target_topic in ((17, 0), (18, 13), (0, 1)):
+            with self.subTest(target_topic=target_topic):
+                await self.bind(source_topic, target_topic)
+                with self.sessions() as session:
+                    rule = session.query(ForwardRule).filter_by(source_topic_id=source_topic).one()
+                    self.assertEqual(rule.target_topic_id, target_topic)
+
+    async def test_bind_other_group_does_not_inherit_current_topic(self):
+        self.event.message.reply_to = message(12).reply_to
+        await self.bind_command('/bind Source Other --source-topic 17')
+        with self.sessions() as session:
+            rule = session.query(ForwardRule).one()
+            self.assertEqual((rule.target_chat.telegram_chat_id, rule.target_topic_id), ('333', 0))
+
+    async def test_bind_general_uses_general_without_treating_ordinary_reply_as_topic(self):
+        self.event.message.reply_to = message(reply=99).reply_to
+        await self.bind_command('/bind Source')
+        with self.sessions() as session:
+            rule = session.query(ForwardRule).one()
+            self.assertEqual((rule.source_topic_id, rule.target_topic_id), (0, 1))
+
+    async def test_bind_nonforum_chat_uses_default_destination(self):
+        self.target.forum = False
+        self.event.message.reply_to = message(reply=99).reply_to
+        await self.bind_command('/bind Source')
+        with self.sessions() as session:
+            self.assertEqual(session.query(ForwardRule).one().target_topic_id, 0)
+
+    async def test_bind_inferred_topic_is_validated_before_saving(self):
+        self.event.message.reply_to = message(99).reply_to
+        await self.bind_command('/bind Source')
+        with self.sessions() as session:
+            self.assertEqual(session.query(ForwardRule).count(), 0)
+        self.assertIn('话题 99 不存在', self.responses.await_args.args[1])
+
+    async def test_bind_inferred_topic_cannot_create_forwarding_cycle(self):
+        self.event.message.reply_to = message(12).reply_to
+        await self.bind_command('/bind Target --source-topic 12')
+        with self.sessions() as session:
+            self.assertEqual(session.query(ForwardRule).count(), 0)
+        self.assertIn('转发循环', self.responses.await_args.args[1])
 
     async def test_bind_multiple_topics_duplicate_and_switch_are_unambiguous(self):
         await self.bind(17, 12)

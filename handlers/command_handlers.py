@@ -39,7 +39,7 @@ async def handle_bind_command(event, client, parts):
         source_target, target_chat_input, source_topic_id, target_topic_id = parse_bind_args(event.message.text)
     except ValueError as error:
         await async_delete_user_message(event.client, event.message.chat_id, event.message.id, 0)
-        await reply_and_delete(event, f'{error}\n用法: /bind <源聊天链接或名称> [目标聊天链接或名称] [--source-topic ID] [--target-topic ID]\n例如:\n/bind "源群" "目标群" --source-topic 123 --target-topic 456\n0 = 全部源话题/默认目标位置，1 = General。省略目标聊天时使用当前聊天；目标话题须显式指定。')
+        await reply_and_delete(event, f'{error}\n用法: /bind <源聊天链接或名称> [目标聊天链接或名称] [--source-topic ID] [--target-topic ID]\n例如:\n/bind "源群" --source-topic 123\n0 = 全部源话题/默认目标位置，1 = General。省略目标聊天时使用当前聊天；目标为当前群且未指定 --target-topic 时，自动使用命令所在话题。')
         return
 
     # 检查是否是链接
@@ -88,6 +88,13 @@ async def handle_bind_command(event, client, parts):
             else:
                 # 使用当前聊天作为目标
                 target_chat_entity = current_chat
+
+            if target_topic_id is None:
+                target_topic_id = (
+                    message_topic_id(event.message, is_forum=True)
+                    if str(target_chat_entity.id) == str(current_chat.id) and getattr(current_chat, 'forum', False)
+                    else 0
+                )
 
             await validate_topic(user_client, source_chat_entity, source_topic_id)
             await validate_topic(user_client, target_chat_entity, target_topic_id, destination=True)
