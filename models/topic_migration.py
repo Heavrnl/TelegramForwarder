@@ -11,11 +11,17 @@ from sqlalchemy import inspect
 
 def migrate_topic_routing(engine):
     inspector = inspect(engine)
-    rule_columns = {c['name'] for c in inspector.get_columns('forward_rules')}
+    rule_column_info = {c['name']: c for c in inspector.get_columns('forward_rules')}
+    rule_columns = set(rule_column_info)
     chat_columns = {c['name'] for c in inspector.get_columns('chats')}
+    unique_constraints = inspector.get_unique_constraints('forward_rules')
     legacy_unique = any(c['column_names'] == ['source_chat_id', 'target_chat_id']
-                        for c in inspector.get_unique_constraints('forward_rules'))
-    if {'source_topic_id', 'target_topic_id'} <= rule_columns and 'current_rule_id' in chat_columns and not legacy_unique:
+                        for c in unique_constraints)
+    topic_unique = any(c['column_names'] == ['source_chat_id', 'source_topic_id', 'target_chat_id', 'target_topic_id']
+                       for c in unique_constraints)
+    nullable_topics = {name for name in ('source_topic_id', 'target_topic_id')
+                       if name in rule_columns and rule_column_info[name]['nullable']}
+    if {'source_topic_id', 'target_topic_id'} <= rule_columns and 'current_rule_id' in chat_columns and not legacy_unique and topic_unique and not nullable_topics:
         return
 
     database = engine.url.database
@@ -39,16 +45,39 @@ def migrate_topic_routing(engine):
             if 'current_rule_id' not in chat_columns:
                 connection.exec_driver_sql('ALTER TABLE chats ADD COLUMN current_rule_id INTEGER')
 
-            if legacy_unique:
+            if legacy_unique or not topic_unique or nullable_topics:
                 original_sql = connection.exec_driver_sql(
                     "SELECT sql FROM sqlite_master WHERE type='table' AND name='forward_rules'").scalar_one()
                 # Keep the original DDL, including fields not known by this application version.
-                new_sql, count = re.subn(
-                    r'UNIQUE\s*\(\s*["`\[]?source_chat_id["`\]]?\s*,\s*["`\[]?target_chat_id["`\]]?\s*\)',
-                    'UNIQUE (source_chat_id, source_topic_id, target_chat_id, target_topic_id)',
-                    original_sql, flags=re.IGNORECASE)
-                if count != 1:
-                    raise RuntimeError('无法识别旧规则唯一约束，已取消话题迁移')
+                new_sql = original_sql
+                if legacy_unique:
+                    new_sql, count = re.subn(
+                        r'UNIQUE\s*\(\s*["`\[]?source_chat_id["`\]]?\s*,\s*["`\[]?target_chat_id["`\]]?\s*\)',
+                        'UNIQUE (source_chat_id, source_topic_id, target_chat_id, target_topic_id)',
+                        new_sql, flags=re.IGNORECASE)
+                    if count != 1:
+                        raise RuntimeError('无法识别旧规则唯一约束，已取消话题迁移')
+                elif not topic_unique:
+                    position = new_sql.rfind(')')
+                    new_sql = (new_sql[:position] + ', UNIQUE (source_chat_id, source_topic_id, target_chat_id, target_topic_id)'
+                               + new_sql[position:])
+                for name in nullable_topics:
+                    # Older releases already stored nullable target_topic_id values.
+                    # Retain non-null destinations and enforce the new 0 sentinel.
+                    pattern = (r'((?:^|[,(])\s*["`\[]?' + name
+                               + r'["`\]]?\s+INTEGER\b)([^,\n]*)')
+
+                    def required_topic(match):
+                        options = re.sub(r'\bDEFAULT\s+(?:NULL|\(?0\)?|\x270\x27|"0")', '',
+                                         match[2], flags=re.IGNORECASE)
+                        if re.search(r'\bDEFAULT\b', options, flags=re.IGNORECASE):
+                            raise RuntimeError('无法识别旧话题字段默认值，已取消话题迁移')
+                        options = re.sub(r'\b(?:NOT\s+)?NULL\b', '', options, flags=re.IGNORECASE)
+                        return match[1] + ' NOT NULL DEFAULT 0' + options
+
+                    new_sql, count = re.subn(pattern, required_topic, new_sql, flags=re.IGNORECASE)
+                    if count != 1:
+                        raise RuntimeError('无法识别旧话题字段，已取消话题迁移')
                 new_sql = new_sql.replace('unique_source_target', 'unique_source_target_topic')
                 new_sql, count = re.subn(
                     r'^(CREATE\s+TABLE\s+)(?:"forward_rules"|`forward_rules`|\[forward_rules\]|forward_rules)',
@@ -61,7 +90,9 @@ def migrate_topic_routing(engine):
                 connection.exec_driver_sql(new_sql)
                 columns = connection.exec_driver_sql('PRAGMA table_info(forward_rules)').fetchall()
                 names = ', '.join('"' + c[1].replace('"', '""') + '"' for c in columns)
-                connection.exec_driver_sql(f'INSERT INTO forward_rules_topic_migration ({names}) SELECT {names} FROM forward_rules')
+                values = ', '.join(f'COALESCE("{c[1]}", 0)' if c[1] in nullable_topics
+                                   else '"' + c[1].replace('"', '""') + '"' for c in columns)
+                connection.exec_driver_sql(f'INSERT INTO forward_rules_topic_migration ({names}) SELECT {values} FROM forward_rules')
                 connection.exec_driver_sql('DROP TABLE forward_rules')
                 connection.exec_driver_sql('ALTER TABLE forward_rules_topic_migration RENAME TO forward_rules')
                 for sql in objects:

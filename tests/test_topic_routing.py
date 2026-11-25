@@ -160,6 +160,46 @@ class MigrationTests(unittest.TestCase):
             self.assertEqual(conn.exec_driver_sql('SELECT rule_id FROM migration_child').scalar(), 42)
             self.assertEqual(conn.exec_driver_sql('PRAGMA foreign_keys').scalar(), 1)
 
+    def nullable_topic_database(self):
+        self.legacy_database()
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql('ALTER TABLE forward_rules ADD COLUMN target_topic_id INTEGER DEFAULT NULL')
+            conn.exec_driver_sql("INSERT INTO chats(id, telegram_chat_id, name) VALUES (3, '333', '已有话题目标')")
+            conn.exec_driver_sql("INSERT INTO forward_rules(id, source_chat_id, target_chat_id, target_topic_id, forward_mode, message_mode, is_preview, add_mode, handle_mode, extension_filter_mode) VALUES (43, 1, 3, 19, 'BLACKLIST', 'MARKDOWN', 'FOLLOW', 'BLACKLIST', 'FORWARD', 'BLACKLIST')")
+
+    def test_upgrade_preserves_existing_destinations_and_normalizes_null(self):
+        self.nullable_topic_database()
+        migrate_db(self.engine)
+        migrate_db(self.engine)
+        with Session(self.engine) as session:
+            self.assertEqual(session.get(ForwardRule, 42).target_topic_id, 0)
+            self.assertEqual(session.get(ForwardRule, 43).target_topic_id, 19)
+            self.assertEqual(session.get(Keyword, 77).rule_id, 42)
+            session.add(ForwardRule(source_chat_id=1, target_chat_id=2))
+            with self.assertRaises(IntegrityError):
+                session.commit()
+        columns = {c['name']: c for c in inspect(self.engine).get_columns('forward_rules')}
+        for name in ('source_topic_id', 'target_topic_id'):
+            self.assertFalse(columns[name]['nullable'])
+            self.assertEqual(columns[name]['default'], '0')
+        with self.engine.begin() as conn:
+            with self.assertRaises(IntegrityError):
+                conn.exec_driver_sql('UPDATE forward_rules SET target_topic_id=NULL WHERE id=42')
+        self.assertEqual(len(list(Path(self.temp.name).glob('*.bak'))), 1)
+
+    def test_nullable_topic_upgrade_failure_keeps_existing_schema_and_values(self):
+        self.nullable_topic_database()
+        with self.engine.begin() as conn:
+            conn.exec_driver_sql('CREATE TABLE forward_rules_topic_migration (sentinel INTEGER)')
+        with self.assertRaises(OperationalError):
+            migrate_topic_routing(self.engine)
+        columns = {c['name']: c for c in inspect(self.engine).get_columns('forward_rules')}
+        self.assertTrue(columns['target_topic_id']['nullable'])
+        self.assertNotIn('source_topic_id', columns)
+        with self.engine.connect() as conn:
+            self.assertEqual(conn.exec_driver_sql('SELECT target_topic_id FROM forward_rules ORDER BY id').scalars().all(), [None, 19])
+            self.assertEqual(conn.exec_driver_sql('PRAGMA foreign_keys').scalar(), 1)
+
     def test_fresh_database_allows_multiple_topics_and_rejects_duplicates(self):
         Base.metadata.create_all(self.engine)
         migrate_db(self.engine)
